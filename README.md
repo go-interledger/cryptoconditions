@@ -1,10 +1,8 @@
 # cryptoconditions
 
-<<<<<<< HEAD
 This package provides a Go (golang) implementation of the 
 [Crypto-Conditions specification](https://datatracker.ietf.org/doc/draft-thomas-crypto-conditions/)
 intended for the Interledger protocol.
-=======
 
 ## Considerations
 
@@ -14,14 +12,22 @@ intended for the Interledger protocol.
  
  => not possible because some fulfillments have specific interfaces
  
- - Consider letting `Fulfillment.Validate(message)` return a boolean (and an error) instead of just an error.
+ - Let `Fulfillment.Validate(message)` return a boolean (and an error) instead of just an error.
  
- - Some smaller considerations in TODO's in the code.
+ - Let `Fulfillment.Validate` also take a `Condition` as argument to verify if the fulfillment and the
+ message fulfill the given condition. (Could be omitted when `nil` is passed.)
+ 
+ - Divide different conditions and fulfillments into subpackages.
+ 
+ - Allow for signing of RSA-SHA-256 conditions.
+ 
+ - Add serialization and URI round-trip tests to (fulfillment) standard tests. Could do for conditions too.
+ 
+ - Perhaps some smaller considerations in TODO's in the code.
 
 ## Differences with InterledgerJs
 
- - Fulfillment objects are immutable,
- except for the `ParsePayload` method.
- - No validation of conditions against local rules 
- (js's `condition.validate`).
->>>>>>> Initial implementation
+ - Fulfillment objects are immutable, except for the `ParsePayload` method, used for deserialization.
+ 
+ - No validation of conditions against local rules (JS's `condition.validate`).
+ We could make a `LocalConstraints` struct with two validate methods in a separate file..

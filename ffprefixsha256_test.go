@@ -38,55 +38,39 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 	for _, v := range testFfPrefixSha256Vectors {
 		// initialize the vector variables
 		if vSff, err = ParseFulfillmentUri(v.sffUri); err != nil {
-			t.Errorf("ERROR in URI parsing: %v", err)
+			t.Fatalf("ERROR in URI parsing: %v", err)
 		}
 		if vFf, err = ParseFulfillmentUri(v.ffUri); err != nil {
-			t.Errorf("ERROR in URI parsing: %v", err)
+			t.Fatalf("ERROR in URI parsing: %v", err)
 		}
 
-		// Test if it generates the correct fulfillment URIs.
+		// Perform the standard fulfillment tests.
 
 		ff := NewFfPrefixSha256(v.prefix, vSff)
-		uri, err := Uri(ff)
-		if err != nil {
-			t.Errorf("Error generating ff uri: %v", err)
-		}
-		if uri != v.ffUri {
-			t.Errorf("Generates incorrect URI: %v", uri)
-		}
-		cond, err := ff.Condition()
-		if err != nil {
-			t.Errorf("Failed to generate condition: %v", err)
-		}
-		conduri, err := Uri(cond)
-		if err != nil {
-			t.Errorf("Error generating cond uri: %v", err)
-		}
-		if conduri != v.condUri {
-			t.Errorf("Generates incorrect condition URI: %v", conduri)
-		}
+		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
+		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 
 		// Test if it generates the correct fulfillment URIs when unfulfilled.
 
 		subCond, err := vSff.Condition()
 		if err != nil {
-			t.Errorf("Failed to calculate condition from subfulfillment: %v", err)
+			t.Fatalf("Failed to calculate condition from subfulfillment: %v", err)
 		}
 		ff = NewFfPrefixSha256Unfulfilled(v.prefix, subCond)
-		uri, err = Uri(ff)
+		_, err = Uri(ff)
 		if err == nil {
 			t.Error("Should be impossible to generate a URI for an unfulfilled fulfillment.")
 		}
-		cond, err = ff.Condition()
+		cond, err := ff.Condition()
 		if err != nil {
-			t.Errorf("Failed to generate condition: %v", err)
+			t.Fatalf("Failed to generate condition: %v", err)
 		}
-		conduri, err = Uri(cond)
+		condUri, err := Uri(cond)
 		if err != nil {
-			t.Errorf("Error generating cond uri: %v", err)
+			t.Fatalf("Error generating cond uri: %v", err)
 		}
-		if conduri != v.condUri {
-			t.Errorf("Generates incorrect condition URI: %v", conduri)
+		if condUri != v.condUri {
+			t.Errorf("Generates incorrect condition URI: %v", condUri)
 		}
 
 		// Test if the fulfillment validates (with an empty message).
