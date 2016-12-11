@@ -1,5 +1,7 @@
 package cryptoconditions
 
+import "bytes"
+
 type ConditionType uint16
 
 const (
@@ -33,7 +35,18 @@ func NewCondition(t ConditionType, features Features, fingerprint []byte, maxFul
 	}
 }
 
+// Equivalent checks if this condition equals the other.
+func (c *Condition) Equals(other *Condition) bool {
+	return c.Type == other.Type &&
+		c.Features == other.Features &&
+		bytes.Equal(c.Fingerprint, other.Fingerprint) &&
+		c.MaxFulfillmentLength == other.MaxFulfillmentLength
+}
+
 func (c *Condition) String() string {
-	uri, _ := Uri(c)
+	uri, err := Uri(c)
+	if err != nil {
+		return "!Could not generate Condition's URI!"
+	}
 	return uri
 }

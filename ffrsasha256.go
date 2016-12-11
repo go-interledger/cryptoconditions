@@ -106,7 +106,10 @@ func (ff *FfRsaSha256) Validate(message []byte) error {
 }
 
 func (ff *FfRsaSha256) String() string {
-	uri, _ := Uri(ff)
+	uri, err := Uri(ff)
+	if err != nil {
+		return "!Could not generate Fulfillment's URI!"
+	}
 	return uri
 }
 

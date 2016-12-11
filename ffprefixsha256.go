@@ -14,7 +14,9 @@ const (
 type FfPrefixSha256 struct {
 	prefix []byte
 
-	subFf Fulfillment
+	// Only have either a subfulfillment or a subcondition.
+	subFf   Fulfillment
+	subCond *Condition
 }
 
 // Create a new FfPrefixSha256 fulfillment.
@@ -22,6 +24,14 @@ func NewFfPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		prefix: prefix,
 		subFf:  subFf,
+	}
+}
+
+// Create an unfulfilled FfPrefixSha256 fulfillment.
+func NewFfPrefixSha256Unfulfilled(prefix []byte, subCondition *Condition) *FfPrefixSha256 {
+	return &FfPrefixSha256{
+		prefix:  prefix,
+		subCond: subCondition,
 	}
 }
 
@@ -33,10 +43,22 @@ func (ff *FfPrefixSha256) Prefix() []byte {
 	return ff.prefix
 }
 
+// IfFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a subfilfullment.
+// If false, it only contains a subcondition.
+func (ff *FfPrefixSha256) IsFulfilled() bool {
+	return ff.subFf != nil
+}
+
 func (ff *FfPrefixSha256) Condition() (*Condition, error) {
-	subCondition, err := ff.subFf.Condition()
-	if err != nil {
-		return nil, err
+	var subCondition *Condition
+	var err error
+	if ff.IsFulfilled() {
+		subCondition, err = ff.subFf.Condition()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		subCondition = ff.subCond
 	}
 
 	features := subCondition.Features | ffPrefixSha256Features
@@ -56,8 +78,11 @@ func (ff *FfPrefixSha256) Condition() (*Condition, error) {
 }
 
 func (ff *FfPrefixSha256) Payload() ([]byte, error) {
-	buffer := new(bytes.Buffer)
+	if !ff.IsFulfilled() {
+		return nil, errors.New("Cannot generate payload of unfulfilled fulfillment.")
+	}
 
+	buffer := new(bytes.Buffer)
 	if err := writeOctetString(buffer, ff.prefix); err != nil {
 		return nil, err
 	}
@@ -83,8 +108,11 @@ func (ff *FfPrefixSha256) ParsePayload(payload []byte) error {
 }
 
 func (ff *FfPrefixSha256) Validate(message []byte) error {
-	buffer := new(bytes.Buffer)
+	if !ff.IsFulfilled() {
+		return errors.New("Cannot validate unfulfilled fulfillment.")
+	}
 
+	buffer := new(bytes.Buffer)
 	buffer.Write(ff.prefix)
 	buffer.Write(message)
 
@@ -92,7 +120,10 @@ func (ff *FfPrefixSha256) Validate(message []byte) error {
 }
 
 func (ff *FfPrefixSha256) String() string {
-	uri, _ := Uri(ff)
+	uri, err := Uri(ff)
+	if err != nil {
+		return "!Could not generate Fulfillment's URI!"
+	}
 	return uri
 }
 

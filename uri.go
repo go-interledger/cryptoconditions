@@ -1,11 +1,12 @@
 package cryptoconditions
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/kalaspuffar/base64url"
 )
 
 const (
@@ -18,9 +19,6 @@ const (
 	// 2 prefix + 1 colon + 1 type + 1 colon + 0 payload
 	minUriLengthFulfillment = 5
 )
-
-// minUriLength is the minimal size of a valid URI.
-var minUriLength = min(minUriLengthCondition, minUriLengthFulfillment)
 
 const (
 	uriPrefixCondition   = "cc"
@@ -44,7 +42,7 @@ func generateConditionUri(c *Condition) string {
 	return fmt.Sprintf("cc:%x:%x:%s:%s",
 		c.Type,
 		c.Features,
-		base64.StdEncoding.EncodeToString(c.Fingerprint),
+		base64url.Encode(c.Fingerprint),
 		c.MaxFulfillmentLength)
 }
 
@@ -56,7 +54,7 @@ func generateFulfillmentUri(ff Fulfillment) (string, error) {
 	}
 	return fmt.Sprintf("cf:%x:%s",
 		ff.Type(),
-		base64.StdEncoding.EncodeToString(payloadBytes)), nil
+		base64url.Encode(payloadBytes)), nil
 }
 
 // ParseUri parses a URI into an object.
@@ -64,58 +62,73 @@ func generateFulfillmentUri(ff Fulfillment) (string, error) {
 // - a *Condition  if the prefix is "cc"
 // - a Fulfillment if the prefux is "cf"
 func ParseUri(uri string) (interface{}, error) {
-	if len(uri) < minUriLength {
-		return nil, errors.New("URI is too short to be valid.")
+	parts := strings.Split(uri, ":")
+	if len(parts) < 1 {
+		return nil, errors.New("URI does not have a prefix.")
 	}
 
-	parts := strings.Split(uri, ":")
 	switch parts[0] {
 	case uriPrefixCondition:
-		return parseConditionUriParts(parts)
+		return ParseConditionUri(uri)
 	case uriPrefixFulfillment:
-		return parseFulfillmentUriParts(parts)
+		return ParseFulfillmentUri(uri)
 	default:
 		return nil, fmt.Errorf("Unknown URI prefix: %s", parts[0])
 	}
 }
 
-// parseConditionUriParts builds a *Condition from a segmented URI.
-func parseConditionUriParts(parts []string) (*Condition, error) {
+// ParseConditionUri parses a URI into a *Condition.
+func ParseConditionUri(uri string) (*Condition, error) {
+	if len(uri) < minUriLengthCondition {
+		return nil, errors.New("URI is too short to be valid.")
+	}
+
+	parts := strings.Split(uri, ":")
 	if len(parts) != 5 {
 		return nil, errors.New("A Condition URI must consist of 5 segments.")
 	}
+	if parts[0] != uriPrefixCondition {
+		return nil, fmt.Errorf("Wrong condition URI prefix: %s", parts[0])
+	}
 
-	c := new(Condition)
+	condition := new(Condition)
 	var err error
 	if tp, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-		c.Type = ConditionType(tp)
+		condition.Type = ConditionType(tp)
 	} else {
 		return nil, err
 	}
 	if features, err := strconv.ParseUint(parts[2], 16, 8); err == nil {
-		c.Features = Features(features)
+		condition.Features = Features(features)
 	} else {
 		return nil, err
 	}
-	if c.Fingerprint, err = base64.StdEncoding.DecodeString(parts[3]); err != nil {
+	if condition.Fingerprint, err = base64url.Decode(parts[3]); err != nil {
 		return nil, err
 	}
 	if mfl, err := strconv.ParseUint(parts[4], 10, 32); err == nil {
-		c.MaxFulfillmentLength = uint32(mfl)
+		condition.MaxFulfillmentLength = uint32(mfl)
 	} else {
 		return nil, err
 	}
 
-	return c, nil
+	return condition, nil
 }
 
-// parseFulfillmentUriParts builds a Fulfillment from a segmented URI.
-func parseFulfillmentUriParts(parts []string) (Fulfillment, error) {
+// ParseFulfillmentUri parses a URI into a Fulfillment.
+func ParseFulfillmentUri(uri string) (Fulfillment, error) {
+	if len(uri) < minUriLengthFulfillment {
+		return nil, errors.New("URI is too short to be valid.")
+	}
+
+	parts := strings.Split(uri, ":")
 	if len(parts) != 3 {
 		return nil, errors.New("A Fulfillment URI must consist of 3 segments.")
 	}
+	if parts[0] != uriPrefixFulfillment {
+		return nil, fmt.Errorf("Wrong fulfillment URI prefix: %s", parts[0])
+	}
 
-	var err error
 	var conditionType ConditionType
 	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
 		conditionType = ConditionType(ct)
@@ -128,7 +141,7 @@ func parseFulfillmentUriParts(parts []string) (Fulfillment, error) {
 		return nil, err
 	}
 
-	payload, err := base64.StdEncoding.DecodeString(parts[2])
+	payload, err := base64url.Decode(parts[2])
 	if err != nil {
 		return nil, err
 	}

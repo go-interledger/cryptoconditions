@@ -75,6 +75,9 @@ func (ff *FfEd25519) Validate(message []byte) error {
 }
 
 func (ff *FfEd25519) String() string {
-	uri, _ := Uri(ff)
+	uri, err := Uri(ff)
+	if err != nil {
+		return "!Could not generate Fulfillment's URI!"
+	}
 	return uri
 }

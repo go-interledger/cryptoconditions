@@ -6,6 +6,17 @@ This package provides a Go (golang) implementation of the
 intended for the Interledger protocol.
 =======
 
+## Considerations
+
+ - Consider not exposing different fulfillment types. 
+ 
+ They are immutable and have a clear API and constructor methods.
+ 
+ => not possible because some fulfillments have specific interfaces
+ 
+ - Consider letting `Fulfillment.Validate(message)` return a boolean (and an error) instead of just an error.
+ 
+ - Some smaller considerations in TODO's in the code.
 
 ## Differences with InterledgerJs
 

@@ -362,7 +362,10 @@ func (ff *FfThresholdSha256) Validate(message []byte) error {
 }
 
 func (ff *FfThresholdSha256) String() string {
-	uri, _ := Uri(ff)
+	uri, err := Uri(ff)
+	if err != nil {
+		return "!Could not generate Fulfillment's URI!"
+	}
 	return uri
 }
 
