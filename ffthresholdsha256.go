@@ -20,7 +20,7 @@ const (
 type FfThresholdSha256 struct {
 	threshold uint32
 
-	subFfs weightedSubFulfillments
+	subFfs []*weightedSubFulfillment
 }
 
 // weightedFulfillment represent a Fulfillment and a corresponding weight.
@@ -34,11 +34,11 @@ type weightedSubFulfillment struct {
 }
 
 // weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface
-type weightedSubFulfillments []*weightedSubFulfillment
+type weightedSubFulfillmentSorter []*weightedSubFulfillment
 
-func (w weightedSubFulfillments) Len() int           { return len(w) }
-func (w weightedSubFulfillments) Less(i, j int) bool { return w[i].weight < w[j].weight }
-func (w weightedSubFulfillments) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+func (w weightedSubFulfillmentSorter) Len() int           { return len(w) }
+func (w weightedSubFulfillmentSorter) Less(i, j int) bool { return w[i].weight < w[j].weight }
+func (w weightedSubFulfillmentSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
 
 // Create a new FfThresholdSha256 fulfillment.
 //TODO do we need to allow adding unfulfilled conditions here too? look at JS later
@@ -48,11 +48,13 @@ func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weigh
 	}
 
 	// merge the fulfillments with the weights and sort them
-	subFfs := make(weightedSubFulfillments, len(subFulfillments))
+	subFfs := make([]*weightedSubFulfillment, len(subFulfillments))
 	for i, ff := range subFulfillments {
 		subFfs[i] = &weightedSubFulfillment{weight: uint32(weights[i]), isFulfilled: true, ff: ff}
 	}
-	sort.Sort(subFfs)
+	// cast to weightedSubFulfillmentSorter to be able to sort
+	sorter := weightedSubFulfillmentSorter(subFfs)
+	sort.Sort(sorter)
 
 	return &FfThresholdSha256{
 		threshold: threshold,
@@ -116,11 +118,20 @@ func (c smallestValidFulfillmentSetCalculator) hasIndex(idx int) bool {
 // calculateSmallestValidFulfillmentSet
 type weightedFulfillmentInfo struct {
 	*weightedSubFulfillment
-	index                 int
-	serialized, condition []byte
+	// the index in the original ff set of the ff this info corresponds to
+	index int
+	// the size of the fulfillment to be included and the size of the condition in the case it's not
+	size, omitSize uint32
 }
 
-func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []weightedFulfillmentInfo,
+// weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface
+type weightedFulfillmentInfoSorter []*weightedFulfillmentInfo
+
+func (w weightedFulfillmentInfoSorter) Len() int           { return len(w) }
+func (w weightedFulfillmentInfoSorter) Less(i, j int) bool { return w[i].weight < w[j].weight }
+func (w weightedFulfillmentInfoSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+
+func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []*weightedFulfillmentInfo,
 	state *smallestValidFulfillmentSetCalculator) (*smallestValidFulfillmentSetCalculator, error) {
 	//TODO consider an approach where we don't "build a set", but just iterate over the slice
 	// and set a bool to true if we want it in or false for out
@@ -144,7 +155,7 @@ func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []weightedFulfil
 		ffs,
 		&smallestValidFulfillmentSetCalculator{
 			index: state.index + 1,
-			size:  state.size + uint32(len(nff.serialized)),
+			size:  state.size + nff.size,
 			set:   append(state.set, nff.index),
 		},
 	)
@@ -157,7 +168,7 @@ func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []weightedFulfil
 		ffs,
 		&smallestValidFulfillmentSetCalculator{
 			index: state.index + 1,
-			size:  state.size + uint32(len(nff.condition)),
+			size:  state.size + nff.omitSize,
 			set:   state.set,
 		},
 	)
@@ -182,7 +193,8 @@ func (s sortableByteSlices) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 	// we build a cache with the relevant information for the calculation
-	sffs := make([]weightedFulfillmentInfo, len(ff.subFfs))
+	sffs := make([]*weightedFulfillmentInfo, len(ff.subFfs))
+	sffsCachedBytes := make([][][]byte, len(ff.subFfs))
 	for i, sff := range ff.subFfs {
 		// size: serialize fulfillment
 		buffer := new(bytes.Buffer)
@@ -200,14 +212,16 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 			return nil, err
 		}
 		sffCondBytes := buffer.Bytes()
-		if err != nil {
-			return nil, err
-		}
-		sffs[i] = weightedFulfillmentInfo{
+
+		sffs[i] = &weightedFulfillmentInfo{
 			weightedSubFulfillment: sff,
-			index:      i,
-			serialized: sffBytes,
-			condition:  sffCondBytes,
+			index:    i,
+			size:     uint32(len(sffBytes)),
+			omitSize: uint32(len(sffCondBytes)),
+		}
+		sffsCachedBytes[i] = [][]byte{
+			sffBytes,
+			sffCondBytes,
 		}
 	}
 
@@ -234,7 +248,7 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		}
 		if smallestSet.hasIndex(i) {
 			// write fulfillment
-			if err := writeOctetString(buffer, sff.serialized); err != nil {
+			if err := writeOctetString(buffer, sffsCachedBytes[i][0]); err != nil {
 				return nil, err
 			}
 			// write empty condition
@@ -247,7 +261,7 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 				return nil, err
 			}
 			// write condition
-			if err := writeOctetString(buffer, sff.condition); err != nil {
+			if err := writeOctetString(buffer, sffsCachedBytes[i][1]); err != nil {
 				return nil, err
 			}
 		}
@@ -276,19 +290,19 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 	reader := bytes.NewReader(payload)
 
 	var err error
-	if threshold, err := readVarUint(reader); err != nil {
+	if threshold, err := readVarUInt(reader); err != nil {
 		return err
 	} else {
 		ff.threshold = uint32(threshold)
 	}
-	nbFfs, err := readVarUint(reader)
+	nbFfs, err := readVarUInt(reader)
 	if err != nil {
 		return err
 	}
 
 	ff.subFfs = make([]*weightedSubFulfillment, nbFfs)
 	for i := 0; i < nbFfs; i++ {
-		weight, err := readVarUint(reader)
+		weight, err := readVarUInt(reader)
 		if err != nil {
 			return err
 		}
@@ -370,8 +384,86 @@ func (ff *FfThresholdSha256) String() string {
 }
 
 func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
-	payload, err := ff.Payload()
-	return uint32(len(payload)), err
+	// build a list with the fulfillment infos needed for the calculation
+	sffs := make([]*weightedFulfillmentInfo, len(ff.subFfs))
+	for i, sff := range ff.subFfs {
+		// size: count fulfillment length
+		counter := new(writeCounter)
+		if err := SerializeFulfillment(counter, sff.ff); err != nil {
+			return 0, err
+		}
+		size := counter.Counter()
+		// omit size: serialize condition
+		sffCond, err := sff.ff.Condition()
+		if err != nil {
+			return 0, err
+		}
+		counter = new(writeCounter)
+		if err := SerializeCondition(counter, sffCond); err != nil {
+			return 0, err
+		}
+		omitSize := counter.Counter()
+
+		sffs[i] = &weightedFulfillmentInfo{
+			weightedSubFulfillment: sff,
+			index:    i,
+			size:     uint32(size),
+			omitSize: uint32(omitSize),
+		}
+	}
+
+	// cast to weightedFulfillmentInfoSorter so that we can sort by weight
+	sorter := weightedFulfillmentInfoSorter(sffs)
+	sort.Sort(sorter)
+
+	sffsWorstLength := calculateWorstCaseSffsLength(int(ff.threshold), sffs, 0)
+
+	if sffsWorstLength == math.MaxUint32 {
+		return 0, errors.New("Insufficient subconditions/weights to meet the threshold.")
+	}
+
+	// calculate the size of the remainder of the fulfillment
+	counter := new(writeCounter)
+	// JS counts threshold as uint32 instead of VarUInt
+	counter.Skip(4)
+	writeVarUInt(counter, len(ff.subFfs))
+	for _, sff := range ff.subFfs {
+		// features bitmask is 1 byte
+		counter.Skip(1)
+		if sff.weight != 1 {
+			// weight is uint32, so 4 bytes
+			counter.Skip(4)
+		}
+	}
+	// add the worst case total length of the serialized fulfillments and conditions
+	counter.Skip(int(sffsWorstLength))
+
+	return uint32(counter.Counter()), nil
+}
+
+func calculateWorstCaseSffsLength(threshold int, sffs []*weightedFulfillmentInfo, index int) uint32 {
+	if threshold <= 0 {
+		// threshold reached, no additional fulfillments need to be added
+		return 0
+	} else if index < len(sffs) {
+		// calculate whether including or excluding the fulfillment increases the size the most
+		nextFf := sffs[index]
+		return maxUint32(
+			nextFf.size+calculateWorstCaseSffsLength(
+				threshold-int(nextFf.weight),
+				sffs,
+				index+1,
+			),
+			nextFf.omitSize+calculateWorstCaseSffsLength(
+				threshold,
+				sffs,
+				index+1,
+			),
+		)
+	} else {
+		//TODO find a better way to indicate this. pass an error object? :s
+		return math.MaxUint32
+	}
 }
 
 func (ff *FfThresholdSha256) getFeatures() (Features, error) {

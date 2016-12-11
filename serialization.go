@@ -31,7 +31,7 @@ func DeserializeCondition(r io.Reader) (*Condition, error) {
 	if c.Fingerprint, err = readOctetString(r); err != nil {
 		return nil, err
 	}
-	if mff, err := readVarUint(r); err != nil {
+	if mff, err := readVarUInt(r); err != nil {
 		return nil, err
 	} else {
 		c.MaxFulfillmentLength = uint32(mff)
