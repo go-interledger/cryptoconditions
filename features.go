@@ -1,7 +1,7 @@
 package cryptoconditions
 
 // Features is a bitflag type representing feature suites.
-type Features uint8
+type Features uint16
 
 const (
 	FSha256 = 1 << iota

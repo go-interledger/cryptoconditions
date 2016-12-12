@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 func readUInt8(r io.Reader) (uint8, error) {
@@ -171,23 +172,19 @@ func writeLengthIndicator(w io.Writer, length int) error {
 }
 
 func readFeatures(r io.Reader) (Features, error) {
-	length, err := readLengthIndicator(r)
+	mask, err := readVarUInt(r)
 	if err != nil {
 		return 0, err
 	}
-	if length != 1 {
-		return 0, fmt.Errorf("Unknown feature bits encountered. Supposed mask length: %v", length)
+	if mask > math.MaxUint8 {
+		return 0, fmt.Errorf("Unknown feature bits encountered: %v", mask)
 	}
 
-	features, err := readUInt8(r)
-	return Features(features), err
+	return Features(mask), err
 }
 
 func writeFeatures(w io.Writer, features Features) error {
-	if err := writeLengthIndicator(w, 1); err != nil {
-		return err
-	}
-	return writeUInt8(w, uint8(features))
+	return writeVarUInt(w, int(features))
 }
 
 func readOctetString(r io.Reader) ([]byte, error) {
