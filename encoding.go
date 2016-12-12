@@ -5,46 +5,36 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 )
 
-func readUInt8(r io.Reader) (int, error) {
+func readUInt8(r io.Reader) (uint8, error) {
 	var i uint8
 	err := binary.Read(r, binary.BigEndian, i)
-	return int(i), err
+	return i, err
 }
 
-func writeUint8(w io.Writer, i int) error {
-	if i < 0 || i > math.MaxUint8 {
-		return fmt.Errorf("Tried to write a uint8 that exceeds the boundaries: %v\n", i)
-	}
-	return binary.Write(w, binary.BigEndian, uint8(i))
+func writeUInt8(w io.Writer, i uint8) error {
+	return binary.Write(w, binary.BigEndian, i)
 }
 
-func readUInt16(r io.Reader) (int, error) {
+func readUInt16(r io.Reader) (uint16, error) {
 	var i uint16
 	err := binary.Read(r, binary.BigEndian, i)
-	return int(i), err
+	return i, err
 }
 
-func writeUint16(w io.Writer, i int) error {
-	if i < 0 || i > math.MaxUint16 {
-		return fmt.Errorf("Tried to write a uint16 that exceeds the boundaries: %v\n", i)
-	}
-	return binary.Write(w, binary.BigEndian, uint16(i))
+func writeUInt16(w io.Writer, i uint16) error {
+	return binary.Write(w, binary.BigEndian, i)
 }
 
-func readUInt32(r io.Reader) (int, error) {
+func readUInt32(r io.Reader) (uint32, error) {
 	var i uint32
 	err := binary.Read(r, binary.BigEndian, i)
-	return int(i), err
+	return i, err
 }
 
-func writeUint32(w io.Writer, i int) error {
-	if i < 0 || i > math.MaxUint32 {
-		return fmt.Errorf("Tried to write a uint32 that exceeds the boundaries: %v\n", i)
-	}
-	return binary.Write(w, binary.BigEndian, uint32(i))
+func writeUInt32(w io.Writer, i uint32) error {
+	return binary.Write(w, binary.BigEndian, i)
 }
 
 func readUInt64(r io.Reader) (uint64, error) {
@@ -66,7 +56,7 @@ func readConditionType(r io.Reader) (ConditionType, error) {
 }
 
 func writeConditionType(w io.Writer, ct ConditionType) error {
-	return writeUint16(w, int(ct))
+	return writeUInt16(w, uint16(ct))
 }
 
 func readVarUInt(r io.Reader) (int, error) {
@@ -80,7 +70,7 @@ func readVarUInt(r io.Reader) (int, error) {
 		return 0, err
 	}
 
-	value := firstByte
+	value := int(firstByte)
 	if length == 1 {
 		return value, nil
 	} else if length == 2 {
@@ -88,19 +78,19 @@ func readVarUInt(r io.Reader) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		value += nextByte << 8
+		value += int(nextByte) << 8
 		return value, nil
 	} else if length == 3 {
 		nextByte, err := readUInt8(r)
 		if err != nil {
 			return 0, err
 		}
-		value += nextByte << 8
+		value += int(nextByte) << 8
 		nextByte, err = readUInt8(r)
 		if err != nil {
 			return 0, err
 		}
-		value += nextByte << 16
+		value += int(nextByte) << 16
 		return value, nil
 	} else {
 		return 0, errors.New("VarUInt of greater than 16777215 (3 bytes) are not supported.")
@@ -110,19 +100,19 @@ func readVarUInt(r io.Reader) (int, error) {
 func writeVarUInt(w io.Writer, value int) error {
 	if value <= 255 {
 		//Write length of length byte "1000 0001"
-		binary.Write(w, binary.BigEndian, 1)
-		binary.Write(w, binary.BigEndian, value)
+		writeUInt8(w, 1)
+		writeUInt8(w, uint8(value))
 	} else if value <= 65535 {
 		//Write length of length byte "1000 0010"
-		binary.Write(w, binary.BigEndian, 2)
-		binary.Write(w, binary.BigEndian, 0xff&(value>>8))
-		binary.Write(w, binary.BigEndian, 0xff&value)
+		writeUInt8(w, 2)
+		writeUInt8(w, uint8(value>>8))
+		writeUInt8(w, uint8(value))
 	} else if value <= 16777215 {
 		//Write length of length byte "1000 0011"
-		binary.Write(w, binary.BigEndian, 3)
-		binary.Write(w, binary.BigEndian, 0xff&(value>>16))
-		binary.Write(w, binary.BigEndian, 0xff&(value>>8))
-		binary.Write(w, binary.BigEndian, 0xff&value)
+		writeUInt8(w, 3)
+		writeUInt8(w, uint8(value>>16))
+		writeUInt8(w, uint8(value>>8))
+		writeUInt8(w, uint8(value))
 	} else {
 		return fmt.Errorf("Values over 16777215 are not supported: %v", value)
 	}
@@ -136,7 +126,7 @@ func readLengthIndicator(r io.Reader) (int, error) {
 	}
 
 	if firstByte < 128 {
-		return firstByte, nil
+		return int(firstByte), nil
 	} else if firstByte > 128 {
 		lenOfLength := firstByte - 128
 		if lenOfLength > 3 {
@@ -148,7 +138,7 @@ func readLengthIndicator(r io.Reader) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			length += nextByte << uint(8*(i-1))
+			length += int(nextByte) << uint(8*(i-1))
 		}
 		return length, nil
 	} else {
@@ -158,22 +148,22 @@ func readLengthIndicator(r io.Reader) (int, error) {
 
 func writeLengthIndicator(w io.Writer, length int) error {
 	if length < 128 {
-		binary.Write(w, binary.BigEndian, length)
+		writeUInt8(w, uint8(length))
 	} else if length <= 255 {
 		//Write length of length byte "1000 0001"
-		binary.Write(w, binary.BigEndian, 128+1)
-		binary.Write(w, binary.BigEndian, length)
+		writeUInt8(w, 128+1)
+		writeUInt8(w, uint8(length))
 	} else if length <= 65535 {
 		//Write length of length byte "1000 0010"
-		binary.Write(w, binary.BigEndian, 128+2)
-		binary.Write(w, binary.BigEndian, 0xff&(length>>8))
-		binary.Write(w, binary.BigEndian, 0xff&length)
+		writeUInt8(w, 128+2)
+		writeUInt8(w, uint8(length>>8))
+		writeUInt8(w, uint8(length))
 	} else if length <= 16777215 {
 		//Write length of length byte "1000 0011"
-		binary.Write(w, binary.BigEndian, 128+3)
-		binary.Write(w, binary.BigEndian, 0xff&(length>>16))
-		binary.Write(w, binary.BigEndian, 0xff&(length>>8))
-		binary.Write(w, binary.BigEndian, 0xff&length)
+		writeUInt8(w, 128+3)
+		writeUInt8(w, uint8(length>>16))
+		writeUInt8(w, uint8(length>>8))
+		writeUInt8(w, uint8(length))
 	} else {
 		return fmt.Errorf("Length too long: %v", length)
 	}
@@ -197,7 +187,7 @@ func writeFeatures(w io.Writer, features Features) error {
 	if err := writeLengthIndicator(w, 1); err != nil {
 		return err
 	}
-	return writeUint8(w, int(features))
+	return writeUInt8(w, uint8(features))
 }
 
 func readOctetString(r io.Reader) ([]byte, error) {

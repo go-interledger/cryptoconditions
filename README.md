@@ -21,8 +21,9 @@ intended for the Interledger protocol.
  
  - Allow for signing of RSA-SHA-256 conditions.
  
- - Use `int` instead of `uint32` for all weights and sizes in Thresold ff. 
+ - Use `int` instead of `uint32` for all weights and sizes in Threshold ff. 
  Could only check on interfaces. But using fixed-size types in structs allows for easier serialized storage, no?
+ (See separate branch were I did this.)
  
  - Add serialization and URI round-trip tests to (fulfillment) standard tests. Could do for conditions too.
  

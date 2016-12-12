@@ -42,7 +42,7 @@ func (w weightedSubFulfillmentSorter) Swap(i, j int)      { w[i], w[j] = w[j], w
 
 // Create a new FfThresholdSha256 fulfillment.
 //TODO do we need to allow adding unfulfilled conditions here too? look at JS later
-func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weights []int) (*FfThresholdSha256, error) {
+func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weights []uint32) (*FfThresholdSha256, error) {
 	if len(subFulfillments) != len(weights) {
 		return nil, errors.New("Not the same amount of subfulfillments and weights provided.")
 	}
@@ -50,7 +50,7 @@ func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weigh
 	// merge the fulfillments with the weights and sort them
 	subFfs := make([]*weightedSubFulfillment, len(subFulfillments))
 	for i, ff := range subFulfillments {
-		subFfs[i] = &weightedSubFulfillment{weight: uint32(weights[i]), isFulfilled: true, ff: ff}
+		subFfs[i] = &weightedSubFulfillment{weight: weights[i], isFulfilled: true, ff: ff}
 	}
 	// cast to weightedSubFulfillmentSorter to be able to sort
 	sorter := weightedSubFulfillmentSorter(subFfs)
@@ -416,7 +416,7 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	sorter := weightedFulfillmentInfoSorter(sffs)
 	sort.Sort(sorter)
 
-	sffsWorstLength := calculateWorstCaseSffsLength(int(ff.threshold), sffs, 0)
+	sffsWorstLength := calculateWorstCaseSffsLength(ff.threshold, sffs, 0)
 
 	if sffsWorstLength == math.MaxUint32 {
 		return 0, errors.New("Insufficient subconditions/weights to meet the threshold.")
@@ -441,7 +441,7 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	return uint32(counter.Counter()), nil
 }
 
-func calculateWorstCaseSffsLength(threshold int, sffs []*weightedFulfillmentInfo, index int) uint32 {
+func calculateWorstCaseSffsLength(threshold uint32, sffs []*weightedFulfillmentInfo, index int) uint32 {
 	if threshold <= 0 {
 		// threshold reached, no additional fulfillments need to be added
 		return 0
@@ -450,7 +450,7 @@ func calculateWorstCaseSffsLength(threshold int, sffs []*weightedFulfillmentInfo
 		nextFf := sffs[index]
 		return maxUint32(
 			nextFf.size+calculateWorstCaseSffsLength(
-				threshold-int(nextFf.weight),
+				subOrZero(threshold, nextFf.weight),
 				sffs,
 				index+1,
 			),

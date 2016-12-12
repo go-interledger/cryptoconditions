@@ -18,6 +18,15 @@ func maxUint32(a, b uint32) uint32 {
 	return b
 }
 
+// subOrZero subtracts b from a and returns 0 if the result would be negative.
+func subOrZero(a, b uint32) uint32 {
+	if b >= a {
+		return 0
+	} else {
+		return a - b
+	}
+}
+
 // unhex is used for testing and will panic when an invalid hex string is passed.
 func unhex(hexString string) []byte {
 	bytes, err := hex.DecodeString(hexString)
