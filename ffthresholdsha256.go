@@ -20,7 +20,7 @@ const (
 type FfThresholdSha256 struct {
 	threshold uint32
 
-	subFfs []weightedSubFulfillment
+	subFfs []*weightedSubFulfillment
 }
 
 // weightedFulfillment represent a Fulfillment and a corresponding weight.
@@ -322,7 +322,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 			if err != nil {
 				return err
 			}
-			ff.subFfs[i] = weightedSubFulfillment{
+			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
 				isFulfilled: true,
 				ff:          sff,
@@ -332,7 +332,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 			if err != nil {
 				return err
 			}
-			ff.subFfs[i] = weightedSubFulfillment{
+			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
 				isFulfilled: false,
 				cond:        sc,
