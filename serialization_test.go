@@ -14,9 +14,9 @@ func TestSerializeCondition(t *testing.T) {
 
 	cond, err = DeserializeCondition(bytes.NewReader(unhex("0000010320e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550102")))
 	if err != nil {
-		t.Error("Failed to deserialize condition: ", err)
+		t.Fatalf("Failed to deserialize condition: %v", err)
 	}
-	if cond.Fingerprint != unhex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") {
+	if !bytes.Equal(cond.Fingerprint, unhex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")) {
 		t.Errorf("Condition has wrong fingerprint: %x", cond.Fingerprint)
 	}
 
@@ -62,11 +62,11 @@ func TestSerializeFulfillment(t *testing.T) {
 	// successfully parses the minimal fulfillment
 	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("000000")))
 	if err != nil {
-		t.Error("Failed to deserialize fulfillment: ", err)
+		t.Fatalf("Failed to deserialize fulfillment: %v", err)
 	}
 	pl, err := ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if ff.Type() != CTPreimageSha256 {
 		t.Errorf("Wrong ff type: %v", ff.Type())
@@ -78,14 +78,14 @@ func TestSerializeFulfillment(t *testing.T) {
 	// successfully parses a basic fulfillment
 	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("00002050d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c")))
 	if err != nil {
-		t.Error("Failed to deserialize fulfillment: ", err)
+		t.Fatalf("Failed to deserialize fulfillment: %v", err)
 	}
 	if ff.Type() != CTPreimageSha256 {
 		t.Errorf("Wrong ff type: %v", ff.Type())
 	}
 	pl, err = ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if base64.StdEncoding.EncodeToString(pl) != "UNhY4JhezH9gQYqvDMWrWH9CwlcKiECVqejMrND2VFw=" {
 		t.Errorf("Incorrect payload: %v", base64.StdEncoding.EncodeToString(pl))
@@ -94,14 +94,14 @@ func TestSerializeFulfillment(t *testing.T) {
 	// successfully parses a fulfillment with base64url characters
 	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("000003faeffa")))
 	if err != nil {
-		t.Error("Failed to deserialize fulfillment: ", err)
+		t.Fatalf("Failed to deserialize fulfillment: %v", err)
 	}
 	if ff.Type() != CTPreimageSha256 {
 		t.Errorf("Wrong ff type: %v", ff.Type())
 	}
 	pl, err = ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if base64.StdEncoding.EncodeToString(pl) != "+u/6" {
 		t.Errorf("Incorrect payload: %v", base64.StdEncoding.EncodeToString(pl))
@@ -109,31 +109,31 @@ func TestSerializeFulfillment(t *testing.T) {
 
 	// Test if attempting to pass invalid fulfillments fails.
 
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("00")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("00")))
 	if err == nil {
 		t.Error("Should reject a fulfillment with less than two bytes")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("0000")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("0000")))
 	if err == nil {
 		t.Error("Should reject a fulfillment containing no payload")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("00000000")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("00000000")))
 	if err == nil {
 		t.Error("Should reject a fulfillment containing extra bytes")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("000080")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("000080")))
 	if err == nil {
 		t.Error("Should reject a fulfillment with non-canonical zero byte length prefix")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("0000810100")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("0000810100")))
 	if err == nil {
 		t.Error("Should reject a fulfillment with non-canonical single byte length prefix")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("000082000100")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("000082000100")))
 	if err == nil {
 		t.Error("Should reject a fulfillment with non-canonical two byte length prefix")
 	}
-	ff, err = DeserializeCondition(bytes.NewReader(unhex("00008700000000000000")))
+	ff, err = DeserializeFulfillment(bytes.NewReader(unhex("00008700000000000000")))
 	if err == nil {
 		t.Error("Should reject a fulfillment with too large of a length prefix")
 	}

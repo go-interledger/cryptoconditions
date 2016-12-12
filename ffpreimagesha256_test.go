@@ -91,10 +91,9 @@ var testFfPreimageSha256Vectors = []testFfPreimageSha256Vector{
 }
 
 func TestFfPreimageSha256Vectors(t *testing.T) {
-	var err error
 	// vector-specific variables
 	var vPreimage []byte
-	var vFf FfPreimageSha256
+	var vFf *FfPreimageSha256
 	//var vCond *Condition
 
 	// Test vectors.
@@ -104,8 +103,14 @@ func TestFfPreimageSha256Vectors(t *testing.T) {
 		//if vCond, err = ParseConditionUri(v.condUri); err != nil {
 		//	t.Fatalf("ERROR in URI parsing: %v", err)
 		//}
-		if vFf, err = ParseFulfillmentUri(v.ffUri); err != nil {
+		if ff, err := ParseFulfillmentUri(v.ffUri); err != nil {
 			t.Fatalf("ERROR in URI parsing: %v", err)
+		} else {
+			var ok bool
+			vFf, ok = ff.(*FfPreimageSha256)
+			if !ok {
+				t.Fatalf("ERROR in casting ff: %v", err)
+			}
 		}
 
 		// Perform the standard fulfillment tests.
@@ -116,7 +121,7 @@ func TestFfPreimageSha256Vectors(t *testing.T) {
 
 		// Test if the fulfillment validates (with an empty message).
 
-		err = vFf.Validate(nil)
+		err := vFf.Validate(nil)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment: %v", err)
 		}

@@ -24,24 +24,30 @@ var testFfPrefixSha256Vectors = []testFfPrefixSha256Vector{
 		sffUri:  "cf:4:dqFZIESm5PURJlvKc6YE2QsFKdHfYCvjChmpJXZg0fWuxqtqkSKv8PfcuWZ_9hMTaJRzK254wm9bZzEB4mf-Litl-k1T2tR4oa2mTVD9Hf232Ukg3D4aVkpkexy6NWAB",
 		ffUri:   "cf:1:A2FiYwAEYHahWSBEpuT1ESZbynOmBNkLBSnR32Ar4woZqSV2YNH1rsarapEir_D33Llmf_YTE2iUcytueMJvW2cxAeJn_i4rZfpNU9rUeKGtpk1Q_R39t9lJINw-GlZKZHscujVgAQ",
 		condUri: "cc:1:25:KHqL2K2uisoMhxznwl-6pai-ENDk2x9Wru6Ls63O5Vs:100",
-		prefix:  []byte{"abc"},
+		prefix:  []byte("abc"),
 	},
 }
 
 func TestFfPrefixSha256Vectors(t *testing.T) {
-	var err error
 	// vector-specific variables
-	var vFf FfPrefixSha256
+	var vFf *FfPrefixSha256
 	var vSff Fulfillment
 
 	// Test vectors.
 	for _, v := range testFfPrefixSha256Vectors {
 		// initialize the vector variables
+		var err error
 		if vSff, err = ParseFulfillmentUri(v.sffUri); err != nil {
 			t.Fatalf("ERROR in URI parsing: %v", err)
 		}
-		if vFf, err = ParseFulfillmentUri(v.ffUri); err != nil {
+		if ff, err := ParseFulfillmentUri(v.ffUri); err != nil {
 			t.Fatalf("ERROR in URI parsing: %v", err)
+		} else {
+			var ok bool
+			vFf, ok = ff.(*FfPrefixSha256)
+			if !ok {
+				t.Fatalf("ERROR in casting ff: %v", err)
+			}
 		}
 
 		// Perform the standard fulfillment tests.
@@ -63,11 +69,11 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 		}
 		cond, err := ff.Condition()
 		if err != nil {
-			t.Fatalf("Failed to generate condition: %v", err)
+			t.Errorf("Failed to generate condition: %v", err)
 		}
 		condUri, err := Uri(cond)
 		if err != nil {
-			t.Fatalf("Error generating cond uri: %v", err)
+			t.Errorf("Error generating cond uri: %v", err)
 		}
 		if condUri != v.condUri {
 			t.Errorf("Generates incorrect condition URI: %v", condUri)

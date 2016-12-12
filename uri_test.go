@@ -1,6 +1,7 @@
 package cryptoconditions
 
 import (
+	"bytes"
 	"encoding/base64"
 	"testing"
 )
@@ -13,11 +14,11 @@ func TestConditionUri(t *testing.T) {
 
 	c, err := ParseUri("cc:0:3:47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	cond, ok := c.(*Condition)
 	if ok == false {
-		t.Error("Typecast failed.")
+		t.Fatal("Typecast failed.")
 	}
 	if cond.Type != CTPreimageSha256 {
 		t.Errorf("Wrong type parsed: %v", cond.Type)
@@ -25,7 +26,7 @@ func TestConditionUri(t *testing.T) {
 	if cond.Features != 3 {
 		t.Errorf("Wrong feature flags parsed: %v", cond.Features)
 	}
-	if cond.Fingerprint != unhex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") {
+	if !bytes.Equal(cond.Fingerprint, unhex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")) {
 		t.Errorf("Wrong fingerprint parsed: %x", cond.Fingerprint)
 	}
 	if cond.MaxFulfillmentLength != 0 {
@@ -130,15 +131,15 @@ func TestFulfillmentUri(t *testing.T) {
 	// successfully parses the minimal fulfillment
 	f, err := ParseUri("cf:0:")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	ff, ok = f.(Fulfillment)
 	if ok == false {
-		t.Error("Typecast failed.")
+		t.Fatal("Typecast failed.")
 	}
 	pl, err := ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if ff.Type() != CTPreimageSha256 {
 		t.Errorf("Wrong ff type: %v", ff.Type())
@@ -150,15 +151,15 @@ func TestFulfillmentUri(t *testing.T) {
 	// successfully parses a basic fulfillment
 	f, err = ParseUri("cf:0:UNhY4JhezH9gQYqvDMWrWH9CwlcKiECVqejMrND2VFw")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	ff, ok = f.(Fulfillment)
 	if ok == false {
-		t.Error("Typecast failed.")
+		t.Fatal("Typecast failed.")
 	}
 	pl, err = ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if base64.StdEncoding.EncodeToString(pl) != "UNhY4JhezH9gQYqvDMWrWH9CwlcKiECVqejMrND2VFw=" {
 		t.Errorf("Incorrect payload: %v", base64.StdEncoding.EncodeToString(pl))
@@ -167,15 +168,15 @@ func TestFulfillmentUri(t *testing.T) {
 	// successfully parses a fulfillment with base64url characters
 	f, err = ParseUri("cf:0:-u_6")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	ff, ok = f.(Fulfillment)
 	if ok == false {
-		t.Error("Typecast failed.")
+		t.Fatal("Typecast failed.")
 	}
 	pl, err = ff.Payload()
 	if err != nil {
-		t.Error("Error generating (empty) payload.")
+		t.Fatal("Error generating (empty) payload.")
 	}
 	if base64.StdEncoding.EncodeToString(pl) != "+u/6" {
 		t.Errorf("Incorrect payload: %v", base64.StdEncoding.EncodeToString(pl))

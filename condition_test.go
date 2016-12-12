@@ -5,31 +5,31 @@ import "testing"
 func TestCondition_Equals(t *testing.T) {
 	cond1, err := ParseConditionUri("cc:0:3:47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	cond1copy, err := ParseConditionUri("cc:0:3:47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	// different conditiontype
 	cond2, err := ParseConditionUri("cc:1:2:37DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:1")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	// different features
 	cond3, err := ParseConditionUri("cc:0:2:37DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	// different maxfulfillmentlength
 	cond4, err := ParseConditionUri("cc:0:2:37DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:1")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 	// different payload
 	cond5, err := ParseConditionUri("cc:0:3:37DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err != nil {
-		t.Errorf("Parse error: %v", err)
+		t.Fatalf("Parse error: %v", err)
 	}
 
 	// Test that cond1 is equal to cond1copy.

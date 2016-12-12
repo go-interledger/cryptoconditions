@@ -176,7 +176,7 @@ func readFeatures(r io.Reader) (Features, error) {
 		return 0, err
 	}
 	if length != 1 {
-		return 0, errors.New("Unknown feature bits encountered.")
+		return 0, fmt.Errorf("Unknown feature bits encountered. Supposed mask length: %v", length)
 	}
 
 	features, err := readUInt8(r)

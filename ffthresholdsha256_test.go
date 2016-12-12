@@ -62,7 +62,7 @@ var testFfThresholdSha256Vectors = []testFfThresholdSha256Vector{
 			"cf:0:AA",
 		},
 		2,
-		[]byte{"abc"},
+		[]byte("abc"),
 		"cf:2:AQIBAgEBBAAAAQAAAQFjAARgdqFZIESm5PURJlvKc6YE2QsFKdHfYCvjChmpJXZg0fWuxqtqkSKv8PfcuWZ_9hMTaJRzK254wm9bZzEB4mf-Litl-k1T2tR4oa2mTVD9Hf232Ukg3D4aVkpkexy6NWABAA",
 		"cc:2:2b:qmhBlTdYm8mukRoIJla3EH9vNorXqXSWaKnlMHzz5D4:111",
 	},
@@ -74,11 +74,10 @@ var testFfThresholdSha256Vectors = []testFfThresholdSha256Vector{
 //ffUri, condUri string
 
 func TestFfThresholdSha256Vectors(t *testing.T) {
-	var err error
 	// vector-specific variables
 	var vSffs []Fulfillment
 	var vSffWeights []uint32
-	var vFf FfThresholdSha256
+	var vFf *FfThresholdSha256
 	//var vCond *Condition
 
 	// Test vectors.
@@ -97,8 +96,14 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 		//if vCond, err = ParseConditionUri(v.condUri); err != nil {
 		//	t.Fatalf("ERROR in URI parsing: %v", err)
 		//}
-		if vFf, err = ParseFulfillmentUri(v.ffUri); err != nil {
+		if ff, err := ParseFulfillmentUri(v.ffUri); err != nil {
 			t.Fatalf("ERROR in URI parsing: %v", err)
+		} else {
+			var ok bool
+			vFf, ok = ff.(*FfThresholdSha256)
+			if !ok {
+				t.Fatalf("ERROR in casting ff: %v", err)
+			}
 		}
 
 		// Perform the standard fulfillment tests.
@@ -162,7 +167,7 @@ func TestCalculateWorstCaseSffsLength(t *testing.T) {
 		infos := make([]*weightedFulfillmentInfo, len(vector[1]))
 		for i, weight := range vector[1] {
 			infos[i] = &weightedFulfillmentInfo{
-				weightedSubFulfillment: {
+				weightedSubFulfillment: &weightedSubFulfillment{
 					weight: weight,
 				},
 				size: vector[2][i],
