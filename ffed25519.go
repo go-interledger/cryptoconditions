@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/sha512"
 
-	"errors"
+	"github.com/pkg/errors"
+
+	"fmt"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -39,10 +41,10 @@ func (ff *FfEd25519) Payload() ([]byte, error) {
 	buffer := new(bytes.Buffer)
 
 	if err := writeOctetStringOfLength(buffer, ff.pubkey, ed25519.PublicKeySize); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to write octet string of pubkey")
 	}
 	if err := writeOctetStringOfLength(buffer, ff.signature, ed25519.SignatureSize); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to write octet string of signature")
 	}
 
 	return buffer.Bytes(), nil
@@ -54,11 +56,11 @@ func (ff *FfEd25519) ParsePayload(payload []byte) error {
 	var err error
 	ff.pubkey, err = readOctetStringOfLength(reader, ed25519.PublicKeySize)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read octet string of pubkey")
 	}
 	ff.signature, err = readOctetStringOfLength(reader, ed25519.SignatureSize)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read octet string of pubkey")
 	}
 
 	return nil
@@ -70,7 +72,8 @@ func (ff *FfEd25519) Validate(message []byte) error {
 	if ed25519.Verify(ff.pubkey, messageDigest[:], ff.signature) == true {
 		return nil
 	} else {
-		return errors.New("Unable to Validate Ed25519 fulfillment: signature verification failed.")
+		return fmt.Errorf(
+			"Unable to Validate Ed25519 fulfillment: signature verification failed for message %x", message)
 	}
 }
 

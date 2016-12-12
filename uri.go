@@ -1,10 +1,11 @@
 package cryptoconditions
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/kalaspuffar/base64url"
 )
@@ -50,7 +51,7 @@ func generateConditionUri(c *Condition) string {
 func generateFulfillmentUri(ff Fulfillment) (string, error) {
 	payloadBytes, err := ff.Payload()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to generate fulfillment payload")
 	}
 	return fmt.Sprintf("cf:%x:%s",
 		ff.Type(),
@@ -96,20 +97,20 @@ func ParseConditionUri(uri string) (*Condition, error) {
 	if tp, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
 		condition.Type = ConditionType(tp)
 	} else {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
 	}
 	if features, err := strconv.ParseUint(parts[2], 16, 8); err == nil {
 		condition.Features = Features(features)
 	} else {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to parse uint8 from hex '%v'", parts[2])
 	}
 	if condition.Fingerprint, err = base64url.Decode(parts[3]); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to decode base64url encoding '%v'", parts[3])
 	}
 	if mfl, err := strconv.ParseUint(parts[4], 10, 32); err == nil {
 		condition.MaxFulfillmentLength = uint32(mfl)
 	} else {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to parse uint32 from decimal '%v'", parts[4])
 	}
 
 	return condition, nil
@@ -133,20 +134,20 @@ func ParseFulfillmentUri(uri string) (Fulfillment, error) {
 	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
 		conditionType = ConditionType(ct)
 	} else {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
 	}
 
 	ff, err := newFulfillmentByType(conditionType)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to create an empty fulfillment of type %v", conditionType)
 	}
 
 	payload, err := base64url.Decode(parts[2])
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to decode base64url encoding of '%v'", parts[2])
 	}
 	if err := ff.ParsePayload(payload); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to parse fulfillment payload")
 	}
 
 	return ff, nil

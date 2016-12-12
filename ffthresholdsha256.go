@@ -3,9 +3,10 @@ package cryptoconditions
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"math"
 	"sort"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -72,26 +73,26 @@ func (ff *FfThresholdSha256) Condition() (*Condition, error) {
 	writeVarUInt(buffer, len(ff.subFfs))
 	for _, sff := range ff.subFfs {
 		if err := writeVarUInt(buffer, int(sff.weight)); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to write VarUInt")
 		}
 		sffCond, err := sff.ff.Condition()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to generate condition of subfulfillment")
 		}
 		if err := SerializeCondition(buffer, sffCond); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to serialize condition of subfulfillment")
 		}
 	}
 	fingerprint := buffer.Bytes()
 
 	features, err := ff.getFeatures()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to construct feature bitmask")
 	}
 
 	maxFfLength, err := ff.calculateMaxFulfillmentLength()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to calculate max fulfillment length")
 	}
 
 	return NewCondition(CTThresholdSha256, features, fingerprint, maxFfLength), nil
@@ -160,7 +161,7 @@ func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []*weightedFulfi
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to calculate smallest valid fulfillment set (with index %v", state.index)
 	}
 
 	withoutNext, err := calculateSmallestValidFulfillmentSet(
@@ -173,7 +174,7 @@ func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []*weightedFulfi
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to calculate smallest valid fulfillment set (without index %v)", state.index)
 	}
 
 	// return the smallest
@@ -199,17 +200,17 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		// size: serialize fulfillment
 		buffer := new(bytes.Buffer)
 		if err := SerializeFulfillment(buffer, sff.ff); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to serialize subfulfillment")
 		}
 		sffBytes := buffer.Bytes()
 		// omit size: serialize condition
 		sffCond, err := sff.ff.Condition()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to generate condition of subfulfillment")
 		}
 		buffer = new(bytes.Buffer)
 		if err := SerializeCondition(buffer, sffCond); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to serialize condition of subfilfillment")
 		}
 		sffCondBytes := buffer.Bytes()
 
@@ -235,7 +236,7 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to calculate smallest valid fulfillment set")
 	}
 
 	// save the serialization or the condition depending on whether or not a subfulfillment
@@ -244,26 +245,23 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 	for i, sff := range sffs {
 		buffer := new(bytes.Buffer)
 		if err := writeVarUInt(buffer, int(sff.weight)); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to write VarUInt")
 		}
+		var ffToWrite, condToWrite []byte
+		// either fill ffToWrite or condToWrite depending on whether or not the ff is included
 		if smallestSet.hasIndex(i) {
-			// write fulfillment
-			if err := writeOctetString(buffer, sffsCachedBytes[i][0]); err != nil {
-				return nil, err
-			}
-			// write empty condition
-			if err := writeOctetString(buffer, nil); err != nil {
-				return nil, err
-			}
+			ffToWrite = sffsCachedBytes[i][0]
+			condToWrite = nil
 		} else {
-			// write empty fulfillment
-			if err := writeOctetString(buffer, nil); err != nil {
-				return nil, err
-			}
-			// write condition
-			if err := writeOctetString(buffer, sffsCachedBytes[i][1]); err != nil {
-				return nil, err
-			}
+			ffToWrite = nil
+			condToWrite = sffsCachedBytes[i][1]
+		}
+		if err := writeOctetString(buffer, ffToWrite); err != nil {
+			return nil, errors.Wrap(err, "Failed to write octet string of subfulfillment")
+		}
+		// write empty condition
+		if err := writeOctetString(buffer, condToWrite); err != nil {
+			return nil, errors.Wrap(err, "Failed to write octet string of subcondition")
 		}
 		serializations = append(serializations, buffer.Bytes())
 	}
@@ -273,14 +271,14 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 	// serialize everything
 	buffer := new(bytes.Buffer)
 	if err := writeVarUInt(buffer, int(ff.threshold)); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to write VarUInt of threshold (%v)", int(ff.threshold))
 	}
 	if err := writeVarUInt(buffer, len(serializations)); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Faield to write VarUInt of nb of subfulfillments (%v)", len(serializations))
 	}
 	for _, s := range serializations {
 		if _, err := buffer.Write(s); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "Failed to write serialization of length %v", len(s))
 		}
 	}
 	return buffer.Bytes(), nil
@@ -291,28 +289,28 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 
 	var err error
 	if threshold, err := readVarUInt(reader); err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read VarUInt of threshold")
 	} else {
 		ff.threshold = uint32(threshold)
 	}
 	nbFfs, err := readVarUInt(reader)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read VarUInt of subfulfillment count")
 	}
 
 	ff.subFfs = make([]*weightedSubFulfillment, nbFfs)
 	for i := 0; i < nbFfs; i++ {
 		weight, err := readVarUInt(reader)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Failed to read VarUInt of subfulfillment weight")
 		}
 		ffBytes, err := readOctetString(reader)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Failed to read octet string of subfulfillment")
 		}
 		condbytes, err := readOctetString(reader)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Failed to read octet string of subcondition")
 		}
 
 		if len(ffBytes) > 0 && len(condbytes) > 0 {
@@ -320,7 +318,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 		} else if len(ffBytes) > 0 {
 			sff, err := DeserializeFulfillment(bytes.NewReader(ffBytes))
 			if err != nil {
-				return err
+				return errors.Wrap(err, "Failed to deserialize subfulfillment")
 			}
 			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
@@ -330,7 +328,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 		} else if len(condbytes) > 0 {
 			sc, err := DeserializeCondition(bytes.NewReader(condbytes))
 			if err != nil {
-				return err
+				return errors.Wrap(err, "Failed to deserialize subcondition")
 			}
 			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
@@ -369,7 +367,7 @@ func (ff *FfThresholdSha256) Validate(message []byte) error {
 	// Validate all subfulfillments individually.
 	for _, sff := range ff.subFfs {
 		if err := sff.ff.Validate(message); err != nil {
-			return err
+			return errors.Wrapf(err, "Failed to validate subfulfillment for message %x", message)
 		}
 	}
 	return nil
@@ -390,17 +388,17 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 		// size: count fulfillment length
 		counter := new(writeCounter)
 		if err := SerializeFulfillment(counter, sff.ff); err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "Failed to serialize subfulfillment")
 		}
 		size := counter.Counter()
 		// omit size: serialize condition
 		sffCond, err := sff.ff.Condition()
 		if err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "Failed to generate condition of subfulfillment")
 		}
 		counter = new(writeCounter)
 		if err := SerializeCondition(counter, sffCond); err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "Failed to serialize condition of subfulfillment")
 		}
 		omitSize := counter.Counter()
 
@@ -471,7 +469,7 @@ func (ff *FfThresholdSha256) getFeatures() (Features, error) {
 	for _, sff := range ff.subFfs {
 		condition, err := sff.ff.Condition()
 		if err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "Failed to generate condition of subfulfillment")
 		}
 		features |= condition.Features
 	}

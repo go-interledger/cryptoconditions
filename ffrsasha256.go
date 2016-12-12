@@ -5,8 +5,9 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
-	"errors"
 	"math/big"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -70,7 +71,7 @@ func (ff *FfRsaSha256) Condition() (*Condition, error) {
 	fingerprint := sha256.Sum256(ff.modulus.Bytes())
 	maxFfLength, err := ff.calculateMaxFulfillmentLength()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to calculate max fulfillment length")
 	}
 	return NewCondition(CTRsaSha256, ffRsaSha256Features, fingerprint[:], maxFfLength), nil
 }
@@ -78,10 +79,10 @@ func (ff *FfRsaSha256) Condition() (*Condition, error) {
 func (ff *FfRsaSha256) Payload() ([]byte, error) {
 	buffer := new(bytes.Buffer)
 	if err := writeOctetString(buffer, ff.modulus.Bytes()); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to write octet string of modulus")
 	}
 	if err := writeOctetString(buffer, ff.signature); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to write octet string of signature")
 	}
 	return buffer.Bytes(), nil
 }
@@ -91,18 +92,19 @@ func (ff *FfRsaSha256) ParsePayload(payload []byte) error {
 
 	modulusBytes, err := readOctetString(reader)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read octet string of modulus")
 	}
 	ff.modulus = new(big.Int).SetBytes(modulusBytes)
 	if ff.signature, err = readOctetString(reader); err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read octet string of signature")
 	}
 
 	return nil
 }
 
 func (ff *FfRsaSha256) Validate(message []byte) error {
-	return rsa.VerifyPSS(ff.PublicKey(), crypto.SHA256, message, ff.signature, nil)
+	return errors.Wrapf(rsa.VerifyPSS(ff.PublicKey(), crypto.SHA256, message, ff.signature, nil),
+		"Failed to verify RSA signature of message %x", message)
 }
 
 func (ff *FfRsaSha256) String() string {
@@ -115,5 +117,5 @@ func (ff *FfRsaSha256) String() string {
 
 func (ff *FfRsaSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	payload, err := ff.Payload()
-	return uint32(len(payload)), err
+	return uint32(len(payload)), errors.Wrap(err, "Failed to generate payload")
 }
