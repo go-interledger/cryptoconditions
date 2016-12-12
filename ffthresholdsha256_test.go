@@ -1,6 +1,10 @@
 package cryptoconditions
 
-import "testing"
+import (
+	"math"
+	"sort"
+	"testing"
+)
 
 type testFfThresholdSha256Vector struct {
 	sffUris        []string
@@ -120,6 +124,59 @@ func TestCalculateWorstCaseSffsLength(t *testing.T) {
 	// - the first containes the threshold and the expected result
 	// next we have three slices of equal length,
 	// - the second the list of weights
-	// - the
-	var testVectors [][][]int
+	// - the third is the list of (fulfillment) sizes
+	// These values correspond to the information passed to calculateWorstCaseSffsLength
+	var testVectors [][][]uint32
+	testVectors = [][][]uint32{
+		{
+			{3, 3},
+			{1, 4},
+			{2, 3},
+		},
+		{
+			{200, 9001},
+			{115, 300},
+			{52, 9001},
+		},
+		{
+			{200, 9001},
+			{115, 142, 300},
+			{52, 18, 9001},
+		},
+		{
+			{400, 1632},
+			{162, 210, 143, 195, 43},
+			{768, 514, 350, 382, 57},
+		},
+		{
+			{100, math.MaxUint32},
+			{15, 31, 12, 33, 8},
+			{139, 134, 314, 133, 464},
+		},
+	}
+
+	// Test the above vectors.
+	for _, vector := range testVectors {
+		threshold := vector[0][0]
+		exptectedSize := vector[0][1]
+		infos := make([]*weightedFulfillmentInfo, len(vector[1]))
+		for i, weight := range vector[1] {
+			infos[i] = &weightedFulfillmentInfo{
+				weightedSubFulfillment: {
+					weight: weight,
+				},
+				size: vector[2][i],
+			}
+		}
+
+		// cast to weightedFulfillmentInfoSorter to sort
+		sorter := weightedFulfillmentInfoSorter(infos)
+		sort.Sort(sorter)
+
+		calculated := calculateWorstCaseSffsLength(threshold, infos, 0)
+		if calculated != exptectedSize {
+			t.Errorf("Calculated worst length %v while we expected %v.", calculated, exptectedSize)
+		}
+	}
+
 }
