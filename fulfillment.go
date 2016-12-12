@@ -15,8 +15,10 @@ type Fulfillment interface {
 	// Populate this fulfillment from the payload.
 	ParsePayload([]byte) error
 
-	// Validate returns nil if the message is successfully validated by the Fullfillment.
+	// Validate returns nil if this fulfillment can be correctly validated.
+	// The message parameter is optional.
 	//TODO consider returning just bool and representing any underlying error as false
+	//TODO consider taking a *Condition as parameter to make sure it's validating the correct *Condition
 	Validate([]byte) error
 }
 

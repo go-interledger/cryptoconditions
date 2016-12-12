@@ -2,23 +2,7 @@ package cryptoconditions
 
 import "io"
 
-// SerializeCondition writes the condition to the writer.
-func SerializeCondition(w io.Writer, c *Condition) error {
-	// write condition type
-	if err := writeConditionType(w, c.Type); err != nil {
-		return err
-	}
-	// write features
-	writeFeatures(w, c.Features)
-	// write fingerprint
-	if err := writeOctetString(w, c.Fingerprint); err != nil {
-		return err
-	}
-	// write max fulfillment length
-	return writeVarUInt(w, int(c.MaxFulfillmentLength))
-}
-
-// DeserializeCondition reads a condition from the reader.
+// DeserializeCondition reads a condition from the reader in binary format.
 func DeserializeCondition(r io.Reader) (*Condition, error) {
 	var err error
 	c := new(Condition)
@@ -39,19 +23,23 @@ func DeserializeCondition(r io.Reader) (*Condition, error) {
 	return c, nil
 }
 
-// SerializeFulfillment writes a fulfillment to the writer.
-func SerializeFulfillment(w io.Writer, ff Fulfillment) error {
-	if err := writeConditionType(w, ff.Type()); err != nil {
+// SerializeCondition writes the condition to the writer in binary format.
+func SerializeCondition(w io.Writer, c *Condition) error {
+	// write condition type
+	if err := writeConditionType(w, c.Type); err != nil {
 		return err
 	}
-	payload, err := ff.Payload()
-	if err != nil {
+	// write features
+	writeFeatures(w, c.Features)
+	// write fingerprint
+	if err := writeOctetString(w, c.Fingerprint); err != nil {
 		return err
 	}
-	return writeOctetString(w, payload)
+	// write max fulfillment length
+	return writeVarUInt(w, int(c.MaxFulfillmentLength))
 }
 
-// SerializeFulfillment reads a fulfillment from the reader.
+// SerializeFulfillment reads a fulfillment from the reader in binary format.
 func DeserializeFulfillment(r io.Reader) (Fulfillment, error) {
 	// read condition type and payload
 	conditionType, err := readConditionType(r)
@@ -72,4 +60,16 @@ func DeserializeFulfillment(r io.Reader) (Fulfillment, error) {
 	}
 
 	return ff, nil
+}
+
+// SerializeFulfillment writes the fulfillment to the writer in binary format.
+func SerializeFulfillment(w io.Writer, ff Fulfillment) error {
+	if err := writeConditionType(w, ff.Type()); err != nil {
+		return err
+	}
+	payload, err := ff.Payload()
+	if err != nil {
+		return err
+	}
+	return writeOctetString(w, payload)
 }
