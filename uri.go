@@ -7,7 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	//TODO revert to upstream once #4 is merged
 	"github.com/kalaspuffar/base64url"
+	//"github.com/kalaspuffar/base64url"
 )
 
 const (
@@ -40,7 +42,7 @@ func Uri(obj interface{}) (string, error) {
 
 // conditionUri builds a URI for a Condition.
 func generateConditionUri(c *Condition) string {
-	return fmt.Sprintf("cc:%x:%x:%s:%s",
+	return fmt.Sprintf("cc:%x:%x:%s:%v",
 		c.Type,
 		c.Features,
 		base64url.Encode(c.Fingerprint),
@@ -94,8 +96,11 @@ func ParseConditionUri(uri string) (*Condition, error) {
 
 	condition := new(Condition)
 	var err error
-	if tp, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-		condition.Type = ConditionType(tp)
+	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
+		if ct >= uint64(unknownConditionType) {
+			return nil, fmt.Errorf("Unknown condition type %v", ct)
+		}
+		condition.Type = ConditionType(ct)
 	} else {
 		return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
 	}

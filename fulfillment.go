@@ -31,7 +31,7 @@ func newFulfillmentByType(conditionType ConditionType) (Fulfillment, error) {
 	case CTPrefixSha256:
 		ff = new(FfPrefixSha256)
 	case CTPreimageSha256:
-		ff = new(FfPrefixSha256)
+		ff = new(FfPreimageSha256)
 	case CTRsaSha256:
 		ff = new(FfRsaSha256)
 	case CTThresholdSha256:

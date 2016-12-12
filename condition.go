@@ -14,6 +14,9 @@ const (
 	CTRsaSha256
 
 	CTEd25519
+
+	// unknownConditionType is used to see if a type integer is a known one (all smaller ones are known)
+	unknownConditionType
 )
 
 // Condition is a struct that represents a condition.

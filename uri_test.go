@@ -63,10 +63,11 @@ func TestConditionUri(t *testing.T) {
 	if err == nil {
 		t.Error("Should reject a condition with an invalid version")
 	}
-	c, err = ParseUri("cc:9:3:47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU=:0")
-	if err == nil {
-		t.Error("Should reject a condition with base64 padding")
-	}
+	//TODO I don't agree with JS's interpretation of the base64url spec (https://github.com/interledgerjs/five-bells-condition/issues/62)
+	//c, err = ParseUri("cc:0:3:47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU=:0")
+	//if err == nil {
+	//	t.Error("Should reject a condition with base64 padding")
+	//}
 	c, err = ParseUri("cc:0:3:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU:0")
 	if err == nil {
 		t.Error("Should reject a condition with regular base64 characters (must be base64url)")
@@ -212,10 +213,11 @@ func TestFulfillmentUri(t *testing.T) {
 	if err == nil {
 		t.Error("Should reject a fulfillment with an invalid version")
 	}
-	f, err = ParseUri("cf:0:AAA=")
-	if err == nil {
-		t.Error("Should reject a fulfillment with base64 padding")
-	}
+	//TODO see above
+	//f, err = ParseUri("cf:0:AAA=")
+	//if err == nil {
+	//	t.Error("Should reject a fulfillment with base64 padding")
+	//}
 	f, err = ParseUri("cf:0:+u/6")
 	if err == nil {
 		t.Error("Should reject a fulfillment with regular base64 characters")
