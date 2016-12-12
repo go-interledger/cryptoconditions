@@ -68,6 +68,29 @@ func writeUint64(w io.Writer, i uint64) error {
 	return errors.Wrap(err, "Could not write 8 bytes")
 }
 
+func readByteArray(r io.Reader, length int) ([]byte, error) {
+	bytes := make([]byte, length)
+	n, err := r.Read(bytes)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read %v bytes", length)
+	}
+	if n != length {
+		return nil, errors.Wrapf(err, "Failed to read %v bytes, only read %v bytes", length, n)
+	}
+	return bytes, nil
+}
+
+func writeByteArray(w io.Writer, bytes []byte) error {
+	n, err := w.Write(bytes)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to write %v bytes", len(bytes))
+	}
+	if n != len(bytes) {
+		return errors.Wrapf(err, "Failed to write %v bytes, only wrote %v bytes", len(bytes), n)
+	}
+	return nil
+}
+
 func readConditionType(r io.Reader) (ConditionType, error) {
 	i, err := readUInt16(r)
 	if err != nil {
@@ -236,34 +259,13 @@ func readOctetString(r io.Reader) ([]byte, error) {
 	if length == 0 {
 		return []byte{}, nil
 	}
-
-	bytes := make([]byte, length)
-	_, err = r.Read(bytes)
-	return bytes, errors.Wrapf(err, "failed to read octet string payload of length %v", length)
+	bytes, err := readByteArray(r, length)
+	return bytes, errors.Wrapf(err, "Failed to read byte array or length %v for octet string", length)
 }
 
 func writeOctetString(w io.Writer, bytes []byte) error {
 	if err := writeLengthIndicator(w, len(bytes)); err != nil {
 		return errors.Wrap(err, "Failed to read length indicator")
 	}
-	_, err := w.Write(bytes)
-	return errors.Wrapf(err, "Failed to write %v bytes", len(bytes))
-}
-
-func readOctetStringOfLength(r io.Reader, length int) ([]byte, error) {
-	bytes, err := readOctetString(r)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to read octet string of length %v", length)
-	}
-	if len(bytes) != length {
-		return nil, errors.New("Reading octet string of invalid length!")
-	}
-	return bytes, nil
-}
-
-func writeOctetStringOfLength(w io.Writer, bytes []byte, length int) error {
-	if len(bytes) != length {
-		return errors.New("Writing octet string of invalid length!")
-	}
-	return errors.Wrapf(writeOctetString(w, bytes), "Failed to write octet string of length %v", length)
+	return errors.Wrapf(writeByteArray(w, bytes), "Failed to write byte array of length %v for octet string", len(bytes))
 }

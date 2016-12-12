@@ -40,10 +40,10 @@ func (ff *FfEd25519) Condition() (*Condition, error) {
 func (ff *FfEd25519) Payload() ([]byte, error) {
 	buffer := new(bytes.Buffer)
 
-	if err := writeOctetStringOfLength(buffer, ff.pubkey, ed25519.PublicKeySize); err != nil {
+	if err := writeByteArray(buffer, ff.pubkey); err != nil {
 		return nil, errors.Wrap(err, "Failed to write octet string of pubkey")
 	}
-	if err := writeOctetStringOfLength(buffer, ff.signature, ed25519.SignatureSize); err != nil {
+	if err := writeByteArray(buffer, ff.signature); err != nil {
 		return nil, errors.Wrap(err, "Failed to write octet string of signature")
 	}
 
@@ -54,11 +54,11 @@ func (ff *FfEd25519) ParsePayload(payload []byte) error {
 	reader := bytes.NewReader(payload)
 
 	var err error
-	ff.pubkey, err = readOctetStringOfLength(reader, ed25519.PublicKeySize)
+	ff.pubkey, err = readByteArray(reader, ed25519.PublicKeySize)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read octet string of pubkey")
 	}
-	ff.signature, err = readOctetStringOfLength(reader, ed25519.SignatureSize)
+	ff.signature, err = readByteArray(reader, ed25519.SignatureSize)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read octet string of pubkey")
 	}
