@@ -9,43 +9,62 @@ import (
 )
 
 func readUInt8(r io.Reader) (uint8, error) {
-	var i uint8
-	err := binary.Read(r, binary.BigEndian, i)
-	return i, err
+	b := make([]byte, 1)
+	if _, err := r.Read(b); err != nil {
+		return 0, err
+	}
+	return uint8(b[0]), nil
 }
 
 func writeUInt8(w io.Writer, i uint8) error {
-	return binary.Write(w, binary.BigEndian, i)
+	b := []byte{i}
+	_, err := w.Write(b)
+	return err
 }
 
 func readUInt16(r io.Reader) (uint16, error) {
-	var i uint16
-	err := binary.Read(r, binary.BigEndian, i)
-	return i, err
+	b := make([]byte, 2)
+	if _, err := r.Read(b); err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint16(b), nil
 }
 
 func writeUInt16(w io.Writer, i uint16) error {
-	return binary.Write(w, binary.BigEndian, i)
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, i)
+	_, err := w.Write(b)
+	return err
 }
 
 func readUInt32(r io.Reader) (uint32, error) {
-	var i uint32
-	err := binary.Read(r, binary.BigEndian, i)
-	return i, err
+	b := make([]byte, 4)
+	if _, err := r.Read(b); err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint32(b), nil
 }
 
 func writeUInt32(w io.Writer, i uint32) error {
-	return binary.Write(w, binary.BigEndian, i)
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, i)
+	_, err := w.Write(b)
+	return err
 }
 
 func readUInt64(r io.Reader) (uint64, error) {
-	var i uint64
-	err := binary.Read(r, binary.BigEndian, i)
-	return i, err
+	b := make([]byte, 8)
+	if _, err := r.Read(b); err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint64(b), nil
 }
 
 func writeUint64(w io.Writer, i uint64) error {
-	return binary.Write(w, binary.BigEndian, i)
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, i)
+	_, err := w.Write(b)
+	return err
 }
 
 func readConditionType(r io.Reader) (ConditionType, error) {
@@ -191,6 +210,9 @@ func readOctetString(r io.Reader) ([]byte, error) {
 	length, err := readLengthIndicator(r)
 	if err != nil {
 		return nil, err
+	}
+	if length == 0 {
+		return []byte{}, nil
 	}
 
 	bytes := make([]byte, length)
