@@ -2,7 +2,6 @@ package cryptoconditions
 
 import (
 	"bytes"
-	"crypto/sha512"
 
 	"github.com/pkg/errors"
 
@@ -17,7 +16,7 @@ type FfEd25519 struct {
 	signature []byte
 }
 
-// Create a new FfEd25519 fulfillment.
+// NewFfEd25519 creates a new FfEd25519 fulfillment.
 func NewFfEd25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
 	return &FfEd25519{
 		pubkey:    pubkey,
@@ -27,6 +26,16 @@ func NewFfEd25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
 
 func (ff *FfEd25519) Type() ConditionType {
 	return CTEd25519
+}
+
+// PublicKey returns the public key used in the fulfillment.
+func (ff *FfEd25519) PublicKey() ed25519.PublicKey {
+	return ff.pubkey
+}
+
+// Signature returns the signature provided in this fulfillment.
+func (ff *FfEd25519) Signature() []byte {
+	return ff.signature
 }
 
 func (ff *FfEd25519) Condition() (*Condition, error) {
@@ -67,9 +76,7 @@ func (ff *FfEd25519) ParsePayload(payload []byte) error {
 }
 
 func (ff *FfEd25519) Validate(message []byte) error {
-	messageDigest := sha512.Sum512(message)
-
-	if ed25519.Verify(ff.pubkey, messageDigest[:], ff.signature) == true {
+	if ed25519.Verify(ff.pubkey, message, ff.signature) {
 		return nil
 	} else {
 		return fmt.Errorf(

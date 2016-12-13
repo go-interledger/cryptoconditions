@@ -36,6 +36,7 @@ var testFfRsaSha256Vectors = []testFfRsaSha256Vector{
 }
 
 func TestFfRsaSha256Vectors(t *testing.T) {
+	t.Log("Starting TestFfRsaSha256Vectors")
 	// vector-specific variables
 	//var vKey rsa.PrivateKey // used in JS to verify if signing works correctly
 	var vModulus *big.Int
@@ -44,7 +45,8 @@ func TestFfRsaSha256Vectors(t *testing.T) {
 	//var vCond *Condition
 
 	// Test vectors.
-	for _, v := range testFfRsaSha256Vectors {
+	for i, v := range testFfRsaSha256Vectors {
+		t.Logf("Vector index %v", i)
 		// initialize the vector variables
 		//block, _ := pem.Decode(v.key)
 		//if vKey, err = x509.ParsePKCS1PrivateKey(block.Bytes); err != nil {
@@ -74,7 +76,7 @@ func TestFfRsaSha256Vectors(t *testing.T) {
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 
-		// Test if the fulfillment validates (with an empty message).
+		// Test if the fulfillment validates.
 
 		err = vFf.Validate(v.message)
 		if err != nil {

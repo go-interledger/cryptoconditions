@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 
+	"io"
+
 	"github.com/pkg/errors"
 )
 
@@ -20,7 +22,7 @@ type FfPrefixSha256 struct {
 	subCond *Condition
 }
 
-// Create a new FfPrefixSha256 fulfillment.
+// NewFfPrefixSha256 creates a new FfPrefixSha256 fulfillment.
 func NewFfPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		prefix: prefix,
@@ -28,7 +30,7 @@ func NewFfPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	}
 }
 
-// Create an unfulfilled FfPrefixSha256 fulfillment.
+// NewFfPrefixSha256Unfulfilled creates an unfulfilled FfPrefixSha256 fulfillment.
 func NewFfPrefixSha256Unfulfilled(prefix []byte, subCondition *Condition) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		prefix:  prefix,
@@ -40,8 +42,23 @@ func (ff *FfPrefixSha256) Type() ConditionType {
 	return CTPrefixSha256
 }
 
+// Prefix returns the prefix used in this fulfillment.
 func (ff *FfPrefixSha256) Prefix() []byte {
 	return ff.prefix
+}
+
+// SubFulfillment returns the sub-fulfillment of this fulfillment when IsFulfilled() is true.
+func (ff *FfPrefixSha256) SubFulfillment() Fulfillment {
+	return ff.subFf
+}
+
+// SubCondition returns the sub-condition of this fulfillment.
+func (ff *FfPrefixSha256) SubCondition() (*Condition, error) {
+	if ff.IsFulfilled() {
+		return ff.subFf.Condition()
+	} else {
+		return ff.subCond, nil
+	}
 }
 
 // IfFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a subfilfullment.
@@ -51,26 +68,19 @@ func (ff *FfPrefixSha256) IsFulfilled() bool {
 }
 
 func (ff *FfPrefixSha256) Condition() (*Condition, error) {
-	var subCondition *Condition
-	var err error
-	if ff.IsFulfilled() {
-		subCondition, err = ff.subFf.Condition()
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to  generate subcondition")
-		}
-	} else {
-		subCondition = ff.subCond
+	subCondition, err := ff.SubCondition()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to generate subcondition")
 	}
-
 	features := subCondition.Features | ffPrefixSha256Features
 
-	fc, err := ff.calculateFingerprintContent(ff.prefix, subCondition)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to calculate fingerprint content")
+	digest := sha256.New()
+	if err := ff.writeFingerprintContent(digest); err != nil {
+		return nil, errors.Wrap(err, "Failed to write fingerprint content")
 	}
-	fingerprint := sha256.Sum256(fc)
+	fingerprint := digest.Sum(nil)
 
-	maxFulfillmentLength, err := ff.calculateMaxFulfillmentLength(ff.prefix, subCondition)
+	maxFulfillmentLength, err := ff.calculateMaxFulfillmentLength(subCondition)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to calculate max fulfillment length")
 	}
@@ -128,8 +138,8 @@ func (ff *FfPrefixSha256) String() string {
 	return uri
 }
 
-func (ff *FfPrefixSha256) calculateMaxFulfillmentLength(prefix []byte, subCondition *Condition) (uint32, error) {
-	length := uint32(len(prefix))
+func (ff *FfPrefixSha256) calculateMaxFulfillmentLength(subCondition *Condition) (uint32, error) {
+	length := uint32(len(ff.prefix))
 	if length < 128 {
 		length = length + 1
 	} else if length <= 255 {
@@ -146,15 +156,17 @@ func (ff *FfPrefixSha256) calculateMaxFulfillmentLength(prefix []byte, subCondit
 	return length, nil
 }
 
-func (ff *FfPrefixSha256) calculateFingerprintContent(prefix []byte, subCondition *Condition) ([]byte, error) {
-	buffer := new(bytes.Buffer)
-
-	if err := writeOctetString(buffer, prefix); err != nil {
-		return nil, errors.Wrap(err, "Failed to write octet string of prefix")
-	}
-	if err := SerializeCondition(buffer, subCondition); err != nil {
-		return nil, errors.Wrap(err, "Failed to serialize subcondition")
+func (ff *FfPrefixSha256) writeFingerprintContent(w io.Writer) error {
+	subCondition, err := ff.SubCondition()
+	if err != nil {
+		return errors.Wrap(err, "Failed to generate subcondition")
 	}
 
-	return buffer.Bytes(), nil
+	if err := writeOctetString(w, ff.prefix); err != nil {
+		return errors.Wrap(err, "Failed to write octet string of prefix")
+	}
+	if err := SerializeCondition(w, subCondition); err != nil {
+		return errors.Wrap(err, "Failed to serialize subcondition")
+	}
+	return nil
 }

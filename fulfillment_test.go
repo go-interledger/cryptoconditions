@@ -2,15 +2,12 @@ package cryptoconditions
 
 import "testing"
 
-func TestFulfillment(t *testing.T) {
-	return
-}
-
 // standardFulfillmentTest performs standard tests on a fulfillment:
 // - Tests if it generates the correct URI.
 // - Tests if it can generates the correct condition.
 // - Tests if the generated condition produces the correct URI.
 func standardFulfillmentTest(t *testing.T, ff Fulfillment, correctFfUri, correctCondUri string) {
+	t.Logf("Start standard fulfillment test for %v", correctFfUri)
 	// Test if it generates the correct URI.
 	ffUri, err := Uri(ff)
 	if err != nil {

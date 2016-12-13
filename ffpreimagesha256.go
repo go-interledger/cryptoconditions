@@ -11,7 +11,7 @@ type FfPreimageSha256 struct {
 	preimage []byte
 }
 
-// Create a new FfPreimageSha256 fulfillment.
+// NewFfPreimageSha256 creates a new FfPreimageSha256 fulfillment.
 func NewFfPreimageSha256(preimage []byte) *FfPreimageSha256 {
 	return &FfPreimageSha256{
 		preimage: preimage,
@@ -20,6 +20,11 @@ func NewFfPreimageSha256(preimage []byte) *FfPreimageSha256 {
 
 func (ff *FfPreimageSha256) Type() ConditionType {
 	return CTPreimageSha256
+}
+
+// Preimage returns the preimage used in this fulfillment.
+func (ff *FfPreimageSha256) Preimage() []byte {
+	return ff.preimage
 }
 
 func (ff *FfPreimageSha256) Payload() ([]byte, error) {

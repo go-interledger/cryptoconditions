@@ -7,6 +7,8 @@ import (
 	"crypto/sha256"
 	"math/big"
 
+	"io"
+
 	"github.com/pkg/errors"
 )
 
@@ -18,13 +20,18 @@ const (
 	ffRsaSha256PublicExponent       = 65537
 )
 
+var ffRsaSha256PssOpts rsa.PSSOptions = rsa.PSSOptions{
+	SaltLength: 32,
+	Hash:       crypto.SHA256,
+}
+
 // FfRsaSha256 implements the RSA-SHA-256 fulfillment.
 type FfRsaSha256 struct {
 	modulus   *big.Int
 	signature []byte
 }
 
-// Create a new FfRsaSha256 fulfillment.
+// NewFfRsaSha256 creates a new FfRsaSha256 fulfillment.
 func NewFfRsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
 	// sanity check the modulus
 	modulusLength := len(modulus.Bytes())
@@ -52,14 +59,12 @@ func (ff *FfRsaSha256) Type() ConditionType {
 	return CTRsaSha256
 }
 
-func (ff *FfRsaSha256) Modulus() *big.Int {
-	return ff.modulus
-}
-
+// Signature returns the signature provided in this fulfillment.
 func (ff *FfRsaSha256) Signature() []byte {
 	return ff.signature
 }
 
+// PublicKey returns the RSA public key used in this fulfillment.
 func (ff *FfRsaSha256) PublicKey() *rsa.PublicKey {
 	return &rsa.PublicKey{
 		N: ff.modulus,
@@ -68,23 +73,35 @@ func (ff *FfRsaSha256) PublicKey() *rsa.PublicKey {
 }
 
 func (ff *FfRsaSha256) Condition() (*Condition, error) {
-	fingerprint := sha256.Sum256(ff.modulus.Bytes())
+	digest := sha256.New()
+	if err := writeOctetString(digest, ff.modulus.Bytes()); err != nil {
+		return nil, err
+	}
+	fingerprint := digest.Sum(nil)
+
 	maxFfLength, err := ff.calculateMaxFulfillmentLength()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to calculate max fulfillment length")
 	}
+
 	return NewCondition(CTRsaSha256, ffRsaSha256Features, fingerprint[:], maxFfLength), nil
 }
 
 func (ff *FfRsaSha256) Payload() ([]byte, error) {
 	buffer := new(bytes.Buffer)
-	if err := writeOctetString(buffer, ff.modulus.Bytes()); err != nil {
-		return nil, errors.Wrap(err, "Failed to write octet string of modulus")
+	err := ff.writePayload(buffer)
+	return buffer.Bytes(), err
+}
+
+// writePayload writes the payload to the writer
+func (ff *FfRsaSha256) writePayload(w io.Writer) error {
+	if err := writeOctetString(w, ff.modulus.Bytes()); err != nil {
+		return errors.Wrap(err, "Failed to write octet string of modulus")
 	}
-	if err := writeOctetString(buffer, ff.signature); err != nil {
-		return nil, errors.Wrap(err, "Failed to write octet string of signature")
+	if err := writeOctetString(w, ff.signature); err != nil {
+		return errors.Wrap(err, "Failed to write octet string of signature")
 	}
-	return buffer.Bytes(), nil
+	return nil
 }
 
 func (ff *FfRsaSha256) ParsePayload(payload []byte) error {
@@ -103,8 +120,8 @@ func (ff *FfRsaSha256) ParsePayload(payload []byte) error {
 }
 
 func (ff *FfRsaSha256) Validate(message []byte) error {
-	return errors.Wrapf(rsa.VerifyPSS(ff.PublicKey(), crypto.SHA256, message, ff.signature, nil),
-		"Failed to verify RSA signature of message %x", message)
+	err := rsa.VerifyPSS(ff.PublicKey(), crypto.SHA256, message, ff.signature, &ffRsaSha256PssOpts)
+	return errors.Wrapf(err, "Failed to verify RSA signature of message %x", message)
 }
 
 func (ff *FfRsaSha256) String() string {
@@ -116,6 +133,7 @@ func (ff *FfRsaSha256) String() string {
 }
 
 func (ff *FfRsaSha256) calculateMaxFulfillmentLength() (uint32, error) {
-	payload, err := ff.Payload()
-	return uint32(len(payload)), errors.Wrap(err, "Failed to generate payload")
+	counter := new(writeCounter)
+	err := ff.writePayload(counter)
+	return uint32(counter.Counter()), errors.Wrap(err, "Failed to write payload")
 }

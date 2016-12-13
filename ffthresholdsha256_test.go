@@ -178,8 +178,15 @@ func TestCalculateWorstCaseSffsLength(t *testing.T) {
 		sorter := weightedFulfillmentInfoSorter(infos)
 		sort.Sort(sorter)
 
-		calculated := calculateWorstCaseSffsLength(threshold, infos, 0)
-		if calculated != exptectedSize {
+		calculated, err := calculateWorstCaseSffsSize(threshold, infos, 0)
+		if exptectedSize == math.MaxUint32 {
+			// should not be able to calculate
+			if err == nil {
+				t.Errorf("Should not have been able to calculate size, but calculated %v", calculated)
+			}
+		} else if err != nil {
+			t.Errorf("Was unable to calculate lenght (expected %v)", exptectedSize)
+		} else if err == nil && calculated != exptectedSize {
 			t.Errorf("Calculated worst length %v while we expected %v.", calculated, exptectedSize)
 		}
 	}

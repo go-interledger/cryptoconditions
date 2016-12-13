@@ -41,7 +41,7 @@ func (w weightedSubFulfillmentSorter) Len() int           { return len(w) }
 func (w weightedSubFulfillmentSorter) Less(i, j int) bool { return w[i].weight < w[j].weight }
 func (w weightedSubFulfillmentSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
 
-// Create a new FfThresholdSha256 fulfillment.
+// NewFfThresholdSha256 creates a new FfThresholdSha256 fulfillment.
 //TODO do we need to allow adding unfulfilled conditions here too? look at JS later
 func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weights []uint32) (*FfThresholdSha256, error) {
 	if len(subFulfillments) != len(weights) {
@@ -65,6 +65,11 @@ func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weigh
 
 func (ff *FfThresholdSha256) Type() ConditionType {
 	return CTThresholdSha256
+}
+
+// Threshold returns the threshold used in this fulfillment.
+func (ff *FfThresholdSha256) Threshold() uint32 {
+	return ff.threshold
 }
 
 func (ff *FfThresholdSha256) Condition() (*Condition, error) {
@@ -414,9 +419,9 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	sorter := weightedFulfillmentInfoSorter(sffs)
 	sort.Sort(sorter)
 
-	sffsWorstLength := calculateWorstCaseSffsLength(ff.threshold, sffs, 0)
+	sffsWorstLength, err := calculateWorstCaseSffsSize(ff.threshold, sffs, 0)
 
-	if sffsWorstLength == math.MaxUint32 {
+	if err != nil {
 		return 0, errors.New("Insufficient subconditions/weights to meet the threshold.")
 	}
 
@@ -439,28 +444,38 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	return uint32(counter.Counter()), nil
 }
 
-func calculateWorstCaseSffsLength(threshold uint32, sffs []*weightedFulfillmentInfo, index int) uint32 {
+// calculateWorstCaseSffsSize used in the calculation below
+var calculateWorstCaseSffsSizeError = errors.New("Unable to canculate size")
+
+// calculateWorstCaseSffsLength returns the worst case total length of the sub-fulfillments.
+// It returns any error when it was impossible to find one.
+func calculateWorstCaseSffsSize(threshold uint32, sffs []*weightedFulfillmentInfo, index int) (uint32, error) {
 	if threshold <= 0 {
 		// threshold reached, no additional fulfillments need to be added
-		return 0
+		return 0, nil
 	} else if index < len(sffs) {
 		// calculate whether including or excluding the fulfillment increases the size the most
 		nextFf := sffs[index]
-		return maxUint32(
-			nextFf.size+calculateWorstCaseSffsLength(
-				subOrZero(threshold, nextFf.weight),
-				sffs,
-				index+1,
-			),
-			nextFf.omitSize+calculateWorstCaseSffsLength(
-				threshold,
-				sffs,
-				index+1,
-			),
-		)
+
+		remainingSizeWithNext, errWith := calculateWorstCaseSffsSize(
+			subOrZero(threshold, nextFf.weight), sffs, index+1)
+		sizeWithNext := nextFf.size + remainingSizeWithNext
+
+		remainingSizeWithoutNext, errWithout := calculateWorstCaseSffsSize(
+			threshold, sffs, index+1)
+		sizeWithoutNext := nextFf.omitSize + remainingSizeWithoutNext
+
+		if errWith != nil && errWithout != nil {
+			return 0, calculateWorstCaseSffsSizeError
+		} else if errWith != nil {
+			return sizeWithoutNext, nil
+		} else if errWithout != nil {
+			return sizeWithNext, nil
+		} else {
+			return maxUint32(sizeWithNext, sizeWithoutNext), nil
+		}
 	} else {
-		//TODO find a better way to indicate this. pass an error object? :s
-		return math.MaxUint32
+		return 0, calculateWorstCaseSffsSizeError
 	}
 }
 
