@@ -148,7 +148,6 @@ func ParseFulfillmentUri(uri string) (Fulfillment, error) {
 	}
 
 	payload, err := base64url.Decode(parts[2])
-	fmt.Printf("%x\n\n", payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to decode base64url encoding of '%v'", parts[2])
 	}

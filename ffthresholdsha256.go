@@ -17,6 +17,8 @@ const (
 	maxWeight = uint32(math.MaxUint32)
 )
 
+//TODO do we really need to incorporate for unfulfilled ones? it makes this file so much more complicated
+
 // FfThresholdSha256 implements the Threshold-SHA-256 fulfillment.
 type FfThresholdSha256 struct {
 	threshold uint32
@@ -34,18 +36,28 @@ type weightedSubFulfillment struct {
 	cond *Condition
 }
 
-// weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface
+// Condition returns the condition this sub-fulfillment represents.
+func (sff *weightedSubFulfillment) Condition() (*Condition, error) {
+	if sff.isFulfilled {
+		return sff.ff.Condition()
+	} else {
+		return sff.cond, nil
+	}
+}
+
+// weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface to
+// sort them by weight in descending order.
 type weightedSubFulfillmentSorter []*weightedSubFulfillment
 
 func (w weightedSubFulfillmentSorter) Len() int           { return len(w) }
-func (w weightedSubFulfillmentSorter) Less(i, j int) bool { return w[i].weight < w[j].weight }
+func (w weightedSubFulfillmentSorter) Less(i, j int) bool { return w[j].weight < w[i].weight }
 func (w weightedSubFulfillmentSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
 
 // NewFfThresholdSha256 creates a new FfThresholdSha256 fulfillment.
 //TODO do we need to allow adding unfulfilled conditions here too? look at JS later
 func NewFfThresholdSha256(threshold uint32, subFulfillments []Fulfillment, weights []uint32) (*FfThresholdSha256, error) {
 	if len(subFulfillments) != len(weights) {
-		return nil, errors.New("Not the same amount of subfulfillments and weights provided.")
+		return nil, errors.New("Not the same amount of sub-fulfillments and weights provided.")
 	}
 
 	// merge the fulfillments with the weights and sort them
@@ -80,12 +92,12 @@ func (ff *FfThresholdSha256) Condition() (*Condition, error) {
 		if err := writeVarUInt(buffer, int(sff.weight)); err != nil {
 			return nil, errors.Wrap(err, "Failed to write VarUInt")
 		}
-		sffCond, err := sff.ff.Condition()
+		sffCond, err := sff.Condition()
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to generate condition of subfulfillment")
+			return nil, errors.Wrap(err, "Failed to generate condition of sub-fulfillment")
 		}
 		if err := SerializeCondition(buffer, sffCond); err != nil {
-			return nil, errors.Wrap(err, "Failed to serialize condition of subfulfillment")
+			return nil, errors.Wrap(err, "Failed to serialize condition of sub-fulfillment")
 		}
 	}
 	fingerprint := buffer.Bytes()
@@ -103,15 +115,33 @@ func (ff *FfThresholdSha256) Condition() (*Condition, error) {
 	return NewCondition(CTThresholdSha256, features, fingerprint, maxFfLength), nil
 }
 
+// weightedFulfillmentInfo is a weightedFulfillment with some of its info cached for use by
+// calculateSmallestValidFulfillmentSet
+type weightedSubFulfillmentInfo struct {
+	*weightedSubFulfillment
+	// the index in the original ff set of the ff this info corresponds to
+	index int
+	// the size of the fulfillment to be included and the size of the condition in the case it's not
+	size, omitSize uint32
+}
+
+// weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface to
+// sort them by weight in descending order.
+type weightedSubFulfillmentInfoSorter []*weightedSubFulfillmentInfo
+
+func (w weightedSubFulfillmentInfoSorter) Len() int           { return len(w) }
+func (w weightedSubFulfillmentInfoSorter) Less(i, j int) bool { return w[j].weight < w[i].weight }
+func (w weightedSubFulfillmentInfoSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+
 // State object used for the calculation of the smallest valid set of fulfillments.
-type smallestValidFulfillmentSetCalculator struct {
+type smallestValidFulfillmentSetCalculatorState struct {
 	index int
 	size  uint32
 	set   []int
 }
 
 // hasIndex checks if a certain fulfillment index is in smallestValidFulfillmentSetCalculator.set
-func (c smallestValidFulfillmentSetCalculator) hasIndex(idx int) bool {
+func (c smallestValidFulfillmentSetCalculatorState) hasIndex(idx int) bool {
 	for _, v := range c.set {
 		if v == idx {
 			return true
@@ -120,66 +150,59 @@ func (c smallestValidFulfillmentSetCalculator) hasIndex(idx int) bool {
 	return false
 }
 
-// weightedFulfillmentInfo is a weightedFulfillment with some of its info cached for use by
-// calculateSmallestValidFulfillmentSet
-type weightedFulfillmentInfo struct {
-	*weightedSubFulfillment
-	// the index in the original ff set of the ff this info corresponds to
-	index int
-	// the size of the fulfillment to be included and the size of the condition in the case it's not
-	size, omitSize uint32
-}
-
-// weightedFulfillments is a slice of weightedFulfillments that implements sort.Interface
-type weightedFulfillmentInfoSorter []*weightedFulfillmentInfo
-
-func (w weightedFulfillmentInfoSorter) Len() int           { return len(w) }
-func (w weightedFulfillmentInfoSorter) Less(i, j int) bool { return w[i].weight < w[j].weight }
-func (w weightedFulfillmentInfoSorter) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
-
-func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []*weightedFulfillmentInfo,
-	state *smallestValidFulfillmentSetCalculator) (*smallestValidFulfillmentSetCalculator, error) {
-	//TODO consider an approach where we don't "build a set", but just iterate over the slice
-	// and set a bool to true if we want it in or false for out
-	// we can even incorporate that in the serialize process..
+// calculateSmallestValidFulfillmentSet calculates the smallest valid set of sub-fulfillments that reach the given
+// threshold. The method works recursively and keeps the state of the current recursion in the a
+// smallestValidFulfillmentSetCalculatorState object.
+func calculateSmallestValidFulfillmentSet(threshold uint32, sffs []*weightedSubFulfillmentInfo,
+	state *smallestValidFulfillmentSetCalculatorState) (*smallestValidFulfillmentSetCalculatorState, error) {
+	// Threshold reached, so the set we have is enough.
 	if threshold <= 0 {
-		return &smallestValidFulfillmentSetCalculator{
+		return &smallestValidFulfillmentSetCalculatorState{
 			size: state.size,
 			set:  state.set,
 		}, nil
 	}
-	if state.index >= len(ffs) {
-		return &smallestValidFulfillmentSetCalculator{
+
+	// We iterated through the list of sub-fulfillments and we did not find a valid set -> impossible.
+	if state.index >= len(sffs) {
+		return &smallestValidFulfillmentSetCalculatorState{
 			size: maxWeight,
 		}, nil
 	}
 
-	nff := ffs[state.index]
-
-	withNext, err := calculateSmallestValidFulfillmentSet(
-		threshold-nff.weight,
-		ffs,
-		&smallestValidFulfillmentSetCalculator{
-			index: state.index + 1,
-			size:  state.size + nff.size,
-			set:   append(state.set, nff.index),
-		},
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to calculate smallest valid fulfillment set (with index %v", state.index)
-	}
+	// Regular case: we calculate the set if we would include or not include the next sub-fulfillment
+	// and then pick the choice with the lowest size.
+	nextSff := sffs[state.index]
 
 	withoutNext, err := calculateSmallestValidFulfillmentSet(
 		threshold,
-		ffs,
-		&smallestValidFulfillmentSetCalculator{
+		sffs,
+		&smallestValidFulfillmentSetCalculatorState{
 			index: state.index + 1,
-			size:  state.size + nff.omitSize,
+			size:  state.size + nextSff.omitSize,
 			set:   state.set,
 		},
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to calculate smallest valid fulfillment set (without index %v)", state.index)
+	}
+
+	// If not fulfilled, we can only consider the case to not include it.
+	if !nextSff.isFulfilled {
+		return withoutNext, nil
+	}
+
+	withNext, err := calculateSmallestValidFulfillmentSet(
+		threshold-nextSff.weight,
+		sffs,
+		&smallestValidFulfillmentSetCalculatorState{
+			index: state.index + 1,
+			size:  state.size + nextSff.size,
+			set:   append(state.set, nextSff.index),
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to calculate smallest valid fulfillment set (with index %v", state.index)
 	}
 
 	// return the smallest
@@ -190,36 +213,35 @@ func calculateSmallestValidFulfillmentSet(threshold uint32, ffs []*weightedFulfi
 	}
 }
 
-// sortableByteSlices is a slice of byte slices that implements sort.Interface
-type sortableByteSlices [][]byte
-
-func (s sortableByteSlices) Len() int           { return len(s) }
-func (s sortableByteSlices) Less(i, j int) bool { return bytes.Compare(s[i], s[j]) < 0 }
-func (s sortableByteSlices) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
 func (ff *FfThresholdSha256) Payload() ([]byte, error) {
-	// we build a cache with the relevant information for the calculation
-	sffs := make([]*weightedFulfillmentInfo, len(ff.subFfs))
+	//TODO if we don't keep the cache, but build the either the condition or the fulfillment another time
+	// at the end, we could reuse the write code from the calculateFulfillmentLength method
+
+	// Build a cache with the relevant information for the calculation.
+	sffs := make([]*weightedSubFulfillmentInfo, len(ff.subFfs))
 	sffsCachedBytes := make([][][]byte, len(ff.subFfs))
 	for i, sff := range ff.subFfs {
-		// size: serialize fulfillment
-		buffer := new(bytes.Buffer)
-		if err := SerializeFulfillment(buffer, sff.ff); err != nil {
-			return nil, errors.Wrap(err, "Failed to serialize subfulfillment")
+		// size: serialize fulfillment (can only do this when we have it)
+		var sffBytes []byte
+		if sff.isFulfilled {
+			buffer := new(bytes.Buffer)
+			if err := SerializeFulfillment(buffer, sff.ff); err != nil {
+				return nil, errors.Wrap(err, "Failed to serialize sub-fulfillment")
+			}
+			sffBytes = buffer.Bytes()
 		}
-		sffBytes := buffer.Bytes()
 		// omit size: serialize condition
-		sffCond, err := sff.ff.Condition()
+		sffCond, err := sff.Condition()
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to generate condition of subfulfillment")
+			return nil, errors.Wrap(err, "Failed to generate condition of sub-fulfillment")
 		}
-		buffer = new(bytes.Buffer)
+		buffer := new(bytes.Buffer)
 		if err := SerializeCondition(buffer, sffCond); err != nil {
-			return nil, errors.Wrap(err, "Failed to serialize condition of subfilfillment")
+			return nil, errors.Wrap(err, "Failed to serialize condition of sub-filfillment")
 		}
 		sffCondBytes := buffer.Bytes()
 
-		sffs[i] = &weightedFulfillmentInfo{
+		sffs[i] = &weightedSubFulfillmentInfo{
 			weightedSubFulfillment: sff,
 			index:    i,
 			size:     uint32(len(sffBytes)),
@@ -231,11 +253,11 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		}
 	}
 
-	// we calculate the smallest set of valid fulfillments
+	// Calculate the smallest valid set of fulfillments.
 	smallestSet, err := calculateSmallestValidFulfillmentSet(
 		ff.threshold,
 		sffs,
-		&smallestValidFulfillmentSetCalculator{
+		&smallestValidFulfillmentSetCalculatorState{
 			index: 0,
 			size:  0,
 		},
@@ -244,8 +266,8 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		return nil, errors.Wrap(err, "Failed to calculate smallest valid fulfillment set")
 	}
 
-	// save the serialization or the condition depending on whether or not a subfulfillment
-	// in included in the smallest set
+	// Save the serialization or the condition depending on whether or not a sub-fulfillment
+	// is included in the smallest set.
 	var serializations sortableByteSlices
 	for i, sff := range sffs {
 		buffer := new(bytes.Buffer)
@@ -253,7 +275,7 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 			return nil, errors.Wrap(err, "Failed to write VarUInt")
 		}
 		var ffToWrite, condToWrite []byte
-		// either fill ffToWrite or condToWrite depending on whether or not the ff is included
+		// Either fill ffToWrite or condToWrite depending on whether or not the ff is included.
 		if smallestSet.hasIndex(i) {
 			ffToWrite = sffsCachedBytes[i][0]
 			condToWrite = nil
@@ -261,12 +283,12 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 			ffToWrite = nil
 			condToWrite = sffsCachedBytes[i][1]
 		}
+		// We have to write 2 octet strings, but one of them will be empty.
 		if err := writeOctetString(buffer, ffToWrite); err != nil {
-			return nil, errors.Wrap(err, "Failed to write octet string of subfulfillment")
+			return nil, errors.Wrap(err, "Failed to write octet string of sub-fulfillment")
 		}
-		// write empty condition
 		if err := writeOctetString(buffer, condToWrite); err != nil {
-			return nil, errors.Wrap(err, "Failed to write octet string of subcondition")
+			return nil, errors.Wrap(err, "Failed to write octet string of sub-condition")
 		}
 		serializations = append(serializations, buffer.Bytes())
 	}
@@ -279,7 +301,7 @@ func (ff *FfThresholdSha256) Payload() ([]byte, error) {
 		return nil, errors.Wrapf(err, "Failed to write VarUInt of threshold (%v)", int(ff.threshold))
 	}
 	if err := writeVarUInt(buffer, len(serializations)); err != nil {
-		return nil, errors.Wrapf(err, "Faield to write VarUInt of nb of subfulfillments (%v)", len(serializations))
+		return nil, errors.Wrapf(err, "Faield to write VarUInt of nb of sub-fulfillments (%v)", len(serializations))
 	}
 	for _, s := range serializations {
 		if _, err := buffer.Write(s); err != nil {
@@ -300,22 +322,22 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 	}
 	nbFfs, err := readVarUInt(reader)
 	if err != nil {
-		return errors.Wrap(err, "Failed to read VarUInt of subfulfillment count")
+		return errors.Wrap(err, "Failed to read VarUInt of sub-fulfillment count")
 	}
 
 	ff.subFfs = make([]*weightedSubFulfillment, nbFfs)
 	for i := 0; i < nbFfs; i++ {
 		weight, err := readVarUInt(reader)
 		if err != nil {
-			return errors.Wrap(err, "Failed to read VarUInt of subfulfillment weight")
+			return errors.Wrap(err, "Failed to read VarUInt of sub-fulfillment weight")
 		}
 		ffBytes, err := readOctetString(reader)
 		if err != nil {
-			return errors.Wrap(err, "Failed to read octet string of subfulfillment")
+			return errors.Wrap(err, "Failed to read octet string of sub-fulfillment")
 		}
 		condbytes, err := readOctetString(reader)
 		if err != nil {
-			return errors.Wrap(err, "Failed to read octet string of subcondition")
+			return errors.Wrap(err, "Failed to read octet string of sub-condition")
 		}
 
 		if len(ffBytes) > 0 && len(condbytes) > 0 {
@@ -323,7 +345,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 		} else if len(ffBytes) > 0 {
 			sff, err := DeserializeFulfillment(bytes.NewReader(ffBytes))
 			if err != nil {
-				return errors.Wrap(err, "Failed to deserialize subfulfillment")
+				return errors.Wrap(err, "Failed to deserialize sub-fulfillment")
 			}
 			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
@@ -333,7 +355,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 		} else if len(condbytes) > 0 {
 			sc, err := DeserializeCondition(bytes.NewReader(condbytes))
 			if err != nil {
-				return errors.Wrap(err, "Failed to deserialize subcondition")
+				return errors.Wrap(err, "Failed to deserialize sub-condition")
 			}
 			ff.subFfs[i] = &weightedSubFulfillment{
 				weight:      uint32(weight),
@@ -341,7 +363,7 @@ func (ff *FfThresholdSha256) ParsePayload(payload []byte) error {
 				cond:        sc,
 			}
 		} else {
-			return errors.New("Subconditions must provide either subcondition or fulfillment.")
+			return errors.New("Subconditions must provide either sub-condition or fulfillment.")
 		}
 	}
 
@@ -361,7 +383,7 @@ func (ff *FfThresholdSha256) Validate(message []byte) error {
 
 	// Total weight must meet the threshold.
 	if totalWeight < ff.threshold {
-		return errors.New("Total weight of subfulfillments is lower than threshold.")
+		return errors.New("Total weight of sub-fulfillments is lower than threshold.")
 	}
 
 	// But the set must be minimal, there mustn't be any fulfillments we could take out
@@ -369,10 +391,10 @@ func (ff *FfThresholdSha256) Validate(message []byte) error {
 		return errors.New("Fulfillment is not minimal.")
 	}
 
-	// Validate all subfulfillments individually.
+	// Validate all sub-fulfillments individually.
 	for _, sff := range ff.subFfs {
 		if err := sff.ff.Validate(message); err != nil {
-			return errors.Wrapf(err, "Failed to validate subfulfillment for message %x", message)
+			return errors.Wrapf(err, "Failed to validate sub-fulfillment for message %x", message)
 		}
 	}
 	return nil
@@ -388,26 +410,30 @@ func (ff *FfThresholdSha256) String() string {
 
 func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	// build a list with the fulfillment infos needed for the calculation
-	sffs := make([]*weightedFulfillmentInfo, len(ff.subFfs))
+	sffs := make([]*weightedSubFulfillmentInfo, len(ff.subFfs))
 	for i, sff := range ff.subFfs {
-		// size: count fulfillment length
-		counter := new(writeCounter)
-		if err := SerializeFulfillment(counter, sff.ff); err != nil {
-			return 0, errors.Wrap(err, "Failed to serialize subfulfillment")
+		// size: serialize fulfillment (can only do this when we have it)
+		var size uint32
+		if sff.isFulfilled {
+			counter := new(writeCounter)
+			if err := SerializeFulfillment(counter, sff.ff); err != nil {
+				return 0, errors.Wrap(err, "Failed to serialize sub-fulfillment")
+			}
+			size = uint32(counter.Counter())
 		}
-		size := counter.Counter()
-		// omit size: serialize condition
-		sffCond, err := sff.ff.Condition()
-		if err != nil {
-			return 0, errors.Wrap(err, "Failed to generate condition of subfulfillment")
-		}
-		counter = new(writeCounter)
-		if err := SerializeCondition(counter, sffCond); err != nil {
-			return 0, errors.Wrap(err, "Failed to serialize condition of subfulfillment")
-		}
-		omitSize := counter.Counter()
 
-		sffs[i] = &weightedFulfillmentInfo{
+		// omit size: serialize condition
+		sffCond, err := sff.Condition()
+		if err != nil {
+			return 0, errors.Wrap(err, "Failed to generate condition of sub-fulfillment")
+		}
+		counter := new(writeCounter)
+		if err := SerializeCondition(counter, sffCond); err != nil {
+			return 0, errors.Wrap(err, "Failed to serialize condition of sub-filfillment")
+		}
+		omitSize := uint32(counter.Counter())
+
+		sffs[i] = &weightedSubFulfillmentInfo{
 			weightedSubFulfillment: sff,
 			index:    i,
 			size:     uint32(size),
@@ -416,7 +442,7 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 	}
 
 	// cast to weightedFulfillmentInfoSorter so that we can sort by weight
-	sorter := weightedFulfillmentInfoSorter(sffs)
+	sorter := weightedSubFulfillmentInfoSorter(sffs)
 	sort.Sort(sorter)
 
 	sffsWorstLength, err := calculateWorstCaseSffsSize(ff.threshold, sffs, 0)
@@ -448,8 +474,9 @@ func (ff *FfThresholdSha256) calculateMaxFulfillmentLength() (uint32, error) {
 var calculateWorstCaseSffsSizeError = errors.New("Unable to canculate size")
 
 // calculateWorstCaseSffsLength returns the worst case total length of the sub-fulfillments.
+// The weighted sub-fulfillments must be ordered by weight descending.
 // It returns any error when it was impossible to find one.
-func calculateWorstCaseSffsSize(threshold uint32, sffs []*weightedFulfillmentInfo, index int) (uint32, error) {
+func calculateWorstCaseSffsSize(threshold uint32, sffs []*weightedSubFulfillmentInfo, index int) (uint32, error) {
 	if threshold <= 0 {
 		// threshold reached, no additional fulfillments need to be added
 		return 0, nil
@@ -457,13 +484,22 @@ func calculateWorstCaseSffsSize(threshold uint32, sffs []*weightedFulfillmentInf
 		// calculate whether including or excluding the fulfillment increases the size the most
 		nextFf := sffs[index]
 
-		remainingSizeWithNext, errWith := calculateWorstCaseSffsSize(
-			subOrZero(threshold, nextFf.weight), sffs, index+1)
-		sizeWithNext := nextFf.size + remainingSizeWithNext
-
 		remainingSizeWithoutNext, errWithout := calculateWorstCaseSffsSize(
 			threshold, sffs, index+1)
 		sizeWithoutNext := nextFf.omitSize + remainingSizeWithoutNext
+
+		// if sub-fulfillment is not fulfilled, we can only do without
+		if !nextFf.isFulfilled {
+			if errWithout != nil {
+				return 0, calculateWorstCaseSffsSizeError
+			} else {
+				return sizeWithoutNext, nil
+			}
+		}
+
+		remainingSizeWithNext, errWith := calculateWorstCaseSffsSize(
+			subOrZero(threshold, nextFf.weight), sffs, index+1)
+		sizeWithNext := nextFf.size + remainingSizeWithNext
 
 		if errWith != nil && errWithout != nil {
 			return 0, calculateWorstCaseSffsSizeError
@@ -482,9 +518,9 @@ func calculateWorstCaseSffsSize(threshold uint32, sffs []*weightedFulfillmentInf
 func (ff *FfThresholdSha256) getFeatures() (Features, error) {
 	features := ffThresholdSha256Features
 	for _, sff := range ff.subFfs {
-		condition, err := sff.ff.Condition()
+		condition, err := sff.Condition()
 		if err != nil {
-			return 0, errors.Wrap(err, "Failed to generate condition of subfulfillment")
+			return 0, errors.Wrap(err, "Failed to generate condition of sub-fulfillment")
 		}
 		features |= condition.Features
 	}

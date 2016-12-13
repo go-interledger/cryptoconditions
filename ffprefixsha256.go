@@ -17,7 +17,7 @@ const (
 type FfPrefixSha256 struct {
 	prefix []byte
 
-	// Only have either a subfulfillment or a subcondition.
+	// Only have either a sub-fulfillment or a sub-condition.
 	subFf   Fulfillment
 	subCond *Condition
 }
@@ -61,8 +61,8 @@ func (ff *FfPrefixSha256) SubCondition() (*Condition, error) {
 	}
 }
 
-// IfFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a subfilfullment.
-// If false, it only contains a subcondition.
+// IfFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a sub-fulfillment.
+// If false, it only contains a sub-condition.
 func (ff *FfPrefixSha256) IsFulfilled() bool {
 	return ff.subFf != nil
 }
@@ -70,7 +70,7 @@ func (ff *FfPrefixSha256) IsFulfilled() bool {
 func (ff *FfPrefixSha256) Condition() (*Condition, error) {
 	subCondition, err := ff.SubCondition()
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to generate subcondition")
+		return nil, errors.Wrap(err, "Failed to generate sub-condition")
 	}
 	features := subCondition.Features | ffPrefixSha256Features
 
@@ -98,7 +98,7 @@ func (ff *FfPrefixSha256) Payload() ([]byte, error) {
 		return nil, errors.Wrap(err, "Failed to write octet string of prefix")
 	}
 	if err := SerializeFulfillment(buffer, ff.subFf); err != nil {
-		return nil, errors.Wrap(err, "Failed to serialize subfulfillment")
+		return nil, errors.Wrap(err, "Failed to serialize sub-fulfillment")
 	}
 
 	return buffer.Bytes(), nil
@@ -112,7 +112,7 @@ func (ff *FfPrefixSha256) ParsePayload(payload []byte) error {
 		return errors.Wrap(err, "Failed to read octet string of prefix")
 	}
 	if ff.subFf, err = DeserializeFulfillment(reader); err != nil {
-		return errors.Wrap(err, "Failed to read octet string of subfulfillment")
+		return errors.Wrap(err, "Failed to read octet string of sub-fulfillment")
 	}
 
 	return nil
@@ -127,7 +127,7 @@ func (ff *FfPrefixSha256) Validate(message []byte) error {
 	buffer.Write(ff.prefix)
 	buffer.Write(message)
 
-	return errors.Wrapf(ff.subFf.Validate(buffer.Bytes()), "Failed to validate subfulfillment with message %x", message)
+	return errors.Wrapf(ff.subFf.Validate(buffer.Bytes()), "Failed to validate sub-fulfillment with message %x", message)
 }
 
 func (ff *FfPrefixSha256) String() string {
@@ -159,14 +159,14 @@ func (ff *FfPrefixSha256) calculateMaxFulfillmentLength(subCondition *Condition)
 func (ff *FfPrefixSha256) writeFingerprintContent(w io.Writer) error {
 	subCondition, err := ff.SubCondition()
 	if err != nil {
-		return errors.Wrap(err, "Failed to generate subcondition")
+		return errors.Wrap(err, "Failed to generate sub-condition")
 	}
 
 	if err := writeOctetString(w, ff.prefix); err != nil {
 		return errors.Wrap(err, "Failed to write octet string of prefix")
 	}
 	if err := SerializeCondition(w, subCondition); err != nil {
-		return errors.Wrap(err, "Failed to serialize subcondition")
+		return errors.Wrap(err, "Failed to serialize sub-condition")
 	}
 	return nil
 }

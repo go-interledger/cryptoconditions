@@ -38,7 +38,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 		// initialize the vector variables
 		var err error
 		if vSff, err = ParseFulfillmentUri(v.sffUri); err != nil {
-			t.Fatalf("ERROR in subfulfillment URI parsing for URI %s: %v", v.sffUri, err)
+			t.Fatalf("ERROR in sub-fulfillment URI parsing for URI %s: %v", v.sffUri, err)
 		}
 		if ff, err := ParseFulfillmentUri(v.ffUri); err != nil {
 			t.Fatalf("ERROR in fulfillment URI parsing: %v", err)
@@ -60,7 +60,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 
 		subCond, err := vSff.Condition()
 		if err != nil {
-			t.Fatalf("Failed to calculate condition from subfulfillment: %v", err)
+			t.Fatalf("Failed to calculate condition from sub-fulfillment: %v", err)
 		}
 		ff = NewFfPrefixSha256Unfulfilled(v.prefix, subCond)
 		_, err = Uri(ff)

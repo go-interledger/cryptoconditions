@@ -23,7 +23,7 @@ var testFfThresholdSha256Vectors = []testFfThresholdSha256Vector{
 		"cf:2:AQEBAQEBAwAAAAA",
 		"cc:2:b:x07W1xU1_oBcV9zUheOzspx6Beq8vgy0vYgBVifNV1Q:10",
 	},
-	// Having the same subfulfillment appear twice is allowed, but note how it results in a
+	// Having the same sub-fulfillment appear twice is allowed, but note how it results in a
 	// different condition URI, that is why this behavior is safe.
 	{
 		[]string{
@@ -45,7 +45,7 @@ var testFfThresholdSha256Vectors = []testFfThresholdSha256Vector{
 		"cf:2:AQEBAgEBBAAAAQAAAQEAJwAEASAgdqFZIESm5PURJlvKc6YE2QsFKdHfYCvjChmpJXZg0fUBYA",
 		"cc:2:2b:qD3rZtABzeF5vPqkXN_AJYRStKoowpnivH1-9fQFjSo:146",
 	},
-	// The order of subconditions is irrelevant for both conditions and fulfillments
+	// The order of sub-conditions is irrelevant for both conditions and fulfillments
 	{
 		[]string{
 			"cf:0:AA",
@@ -74,6 +74,7 @@ var testFfThresholdSha256Vectors = []testFfThresholdSha256Vector{
 //ffUri, condUri string
 
 func TestFfThresholdSha256Vectors(t *testing.T) {
+	t.Log("Start TestFfThresholdSha256Vectors")
 	// vector-specific variables
 	var vSffs []Fulfillment
 	var vSffWeights []uint32
@@ -81,17 +82,18 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 	//var vCond *Condition
 
 	// Test vectors.
-	for _, v := range testFfThresholdSha256Vectors {
+	for i, v := range testFfThresholdSha256Vectors {
+		t.Logf("Vector index %v", i)
 		// initialize the vector variables
 		vSffs = make([]Fulfillment, len(v.sffUris))
 		vSffWeights = make([]uint32, len(v.sffUris))
-		for _, sffUri := range v.sffUris {
+		for i, sffUri := range v.sffUris {
 			sff, err := ParseFulfillmentUri(sffUri)
 			if err != nil {
 				t.Fatalf("ERROR parsing fulfillment URI: %v", err)
 			}
-			vSffs = append(vSffs, sff)
-			vSffWeights = append(vSffWeights, 1)
+			vSffs[i] = sff
+			vSffWeights[i] = 1
 		}
 		//if vCond, err = ParseConditionUri(v.condUri); err != nil {
 		//	t.Fatalf("ERROR in URI parsing: %v", err)
@@ -107,7 +109,6 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 		}
 
 		// Perform the standard fulfillment tests.
-
 		ff, err := NewFfThresholdSha256(v.threshold, vSffs, vSffWeights)
 		if err != nil {
 			t.Fatalf("Failed to construct Threshold-SHA-256 fulfillment: %v", err)
@@ -124,7 +125,8 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 	}
 }
 
-func TestCalculateWorstCaseSffsLength(t *testing.T) {
+func TestCalculateWorstCaseSffsSize(t *testing.T) {
+	t.Log("Starting TestCalculateWorstCaseSffsSize")
 	// every testVector consists of four slices:
 	// - the first containes the threshold and the expected result
 	// next we have three slices of equal length,
@@ -161,33 +163,35 @@ func TestCalculateWorstCaseSffsLength(t *testing.T) {
 	}
 
 	// Test the above vectors.
-	for _, vector := range testVectors {
+	for i, vector := range testVectors {
+		t.Logf("Vector index %v", i)
 		threshold := vector[0][0]
-		exptectedSize := vector[0][1]
-		infos := make([]*weightedFulfillmentInfo, len(vector[1]))
+		expectedSize := vector[0][1]
+		infos := make([]*weightedSubFulfillmentInfo, len(vector[1]))
 		for i, weight := range vector[1] {
-			infos[i] = &weightedFulfillmentInfo{
+			infos[i] = &weightedSubFulfillmentInfo{
 				weightedSubFulfillment: &weightedSubFulfillment{
 					weight: weight,
 				},
-				size: vector[2][i],
+				size:     vector[2][i],
+				omitSize: 0,
 			}
 		}
 
 		// cast to weightedFulfillmentInfoSorter to sort
-		sorter := weightedFulfillmentInfoSorter(infos)
+		sorter := weightedSubFulfillmentInfoSorter(infos)
 		sort.Sort(sorter)
 
 		calculated, err := calculateWorstCaseSffsSize(threshold, infos, 0)
-		if exptectedSize == math.MaxUint32 {
+		if expectedSize == math.MaxUint32 {
 			// should not be able to calculate
 			if err == nil {
 				t.Errorf("Should not have been able to calculate size, but calculated %v", calculated)
 			}
 		} else if err != nil {
-			t.Errorf("Was unable to calculate lenght (expected %v)", exptectedSize)
-		} else if err == nil && calculated != exptectedSize {
-			t.Errorf("Calculated worst length %v while we expected %v.", calculated, exptectedSize)
+			t.Errorf("Was unable to calculate size (expected %v)", expectedSize)
+		} else if err == nil && calculated != expectedSize {
+			t.Errorf("Calculated worst size %v while we expected %v.", calculated, expectedSize)
 		}
 	}
 

@@ -1,6 +1,9 @@
 package cryptoconditions
 
-import "encoding/hex"
+import (
+	"bytes"
+	"encoding/hex"
+)
 
 // min returns the lowest of both integers.
 func min(a, b int) int {
@@ -55,3 +58,10 @@ func (w *writeCounter) Skip(n int) {
 func (w *writeCounter) Counter() int {
 	return w.counter
 }
+
+// sortableByteSlices is a slice of byte slices that implements sort.Interface
+type sortableByteSlices [][]byte
+
+func (s sortableByteSlices) Len() int           { return len(s) }
+func (s sortableByteSlices) Less(i, j int) bool { return bytes.Compare(s[i], s[j]) < 0 }
+func (s sortableByteSlices) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
