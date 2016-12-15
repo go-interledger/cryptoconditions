@@ -53,7 +53,7 @@ func TestFfEd25519_Validate(t *testing.T) {
 		t.Fatalf("ERROR parsing fulfillment URI: %v", err)
 	}
 
-	if err := ff.Validate(nil); err != nil {
+	if err := ff.Validate(nil, nil); err != nil {
 		t.Errorf("Could not validate valid fulfillment: %v", err)
 	}
 
@@ -64,9 +64,9 @@ func TestFfEd25519_Validate(t *testing.T) {
 		t.Fatalf("ERROR parsing fulfillment URI: %v", err)
 	}
 	// invalidate the signature
-	ff.(*FfEd25519).signature[4] |= 0x40
+	ff.(*FfEd25519).Signature[4] |= 0x40
 
-	if ff.Validate(nil) == nil {
+	if ff.Validate(nil, nil) == nil {
 		t.Error("Should not be able to validate invalid fulfillment")
 	}
 }
@@ -101,7 +101,7 @@ func TestFfEd25519Vectors(t *testing.T) {
 
 		// Test if the fulfillment validates (with an empty message).
 
-		err = vFf.Validate(v.message)
+		err = vFf.Validate(nil, v.message)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment with message \"%x\": %v", v.message, err)
 		}

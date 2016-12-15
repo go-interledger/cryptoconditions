@@ -34,7 +34,7 @@ A few things don't work yet as they should (InterledgerJS vectors)
  
  - Let `Fulfillment.Validate(message)` return a boolean (and an error) instead of just an error.
  
- - Let `Fulfillment.Validate` also take a `*Condition` as argument to verify if the fulfillment and the
+ - Let `Fulfillment.Validate` also take a `Condition` as argument to verify if the fulfillment and the
  message fulfill the given condition. (Could be omitted when `nil` is passed.)
  
  - Allow for signing of RSA-SHA-256 and Ed255619 conditions.

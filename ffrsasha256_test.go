@@ -42,7 +42,7 @@ func TestFfRsaSha256Vectors(t *testing.T) {
 	var vModulus *big.Int
 	var vSignature []byte
 	var vFf *FfRsaSha256
-	//var vCond *Condition
+	//var vCond Condition
 
 	// Test vectors.
 	for i, v := range testFfRsaSha256Vectors {
@@ -78,7 +78,7 @@ func TestFfRsaSha256Vectors(t *testing.T) {
 
 		// Test if the fulfillment validates.
 
-		err = vFf.Validate(v.message)
+		err = vFf.Validate(nil, v.message)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment: %v", err)
 		}

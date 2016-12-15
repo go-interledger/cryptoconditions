@@ -18,10 +18,7 @@ func standardFulfillmentTest(t *testing.T, ff Fulfillment, correctFfUri, correct
 	}
 
 	// Test if it can generates the correct condition.
-	ffCond, err := ff.Condition()
-	if err != nil {
-		t.Fatalf("Failed to generate condition: %v", err)
-	}
+	ffCond := ff.Condition()
 	correctCond, err := ParseConditionUri(correctCondUri)
 	if err != nil {
 		t.Fatalf("ERROR parsing condition URI: %v", err)

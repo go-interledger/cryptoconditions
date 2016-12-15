@@ -29,11 +29,11 @@ const (
 )
 
 // Uri generates a URI for the given object.
-// Only objects of type *Condition and Fulfillment are allowed.
+// Only objects of type Condition and Fulfillment are allowed.
 func Uri(obj interface{}) (string, error) {
 	switch obj.(type) {
-	case *Condition:
-		return generateConditionUri(obj.(*Condition)), nil
+	case Condition:
+		return generateConditionUri(obj.(Condition)), nil
 	case Fulfillment:
 		return generateFulfillmentUri(obj.(Fulfillment))
 	}
@@ -41,7 +41,7 @@ func Uri(obj interface{}) (string, error) {
 }
 
 // conditionUri builds a URI for a Condition.
-func generateConditionUri(c *Condition) string {
+func generateConditionUri(c Condition) string {
 	return fmt.Sprintf("cc:%x:%x:%s:%v",
 		c.Type,
 		c.Features,
@@ -56,13 +56,13 @@ func generateFulfillmentUri(ff Fulfillment) (string, error) {
 		return "", errors.Wrap(err, "Failed to generate fulfillment payload")
 	}
 	return fmt.Sprintf("cf:%x:%s",
-		ff.Type(),
+		ff.ConditionType(),
 		base64url.Encode(payloadBytes)), nil
 }
 
 // ParseUri parses a URI into an object.
 // Will either return
-// - a *Condition  if the prefix is "cc"
+// - a Condition  if the prefix is "cc"
 // - a Fulfillment if the prefux is "cf"
 func ParseUri(uri string) (interface{}, error) {
 	parts := strings.Split(uri, ":")
@@ -80,8 +80,8 @@ func ParseUri(uri string) (interface{}, error) {
 	}
 }
 
-// ParseConditionUri parses a URI into a *Condition.
-func ParseConditionUri(uri string) (*Condition, error) {
+// ParseConditionUri parses a URI into a Condition.
+func ParseConditionUri(uri string) (Condition, error) {
 	if len(uri) < minUriLengthCondition {
 		return nil, errors.New("URI is too short to be valid.")
 	}
@@ -97,7 +97,7 @@ func ParseConditionUri(uri string) (*Condition, error) {
 	condition := new(Condition)
 	var err error
 	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-		if ct >= uint64(unknownConditionType) {
+		if ct >= uint64(nbKnownConditionTypes) {
 			return nil, fmt.Errorf("Unknown condition type %v", ct)
 		}
 		condition.Type = ConditionType(ct)

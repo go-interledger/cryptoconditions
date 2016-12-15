@@ -69,7 +69,7 @@ var testFfPreimageSha256Vectors = []testFfPreimageSha256Vector{
 	{ // 256 increasing modulos of 256
 		func() string {
 			s := make([]byte, 256)
-			for i, _ := range s {
+			for i := range s {
 				s[i] = byte(i % 256)
 			}
 			return fmt.Sprintf("%x", s)
@@ -80,7 +80,7 @@ var testFfPreimageSha256Vectors = []testFfPreimageSha256Vector{
 	{ // 4096 increasing modulos of 256
 		func() string {
 			s := make([]byte, 4096)
-			for i, _ := range s {
+			for i := range s {
 				s[i] = byte(i % 256)
 			}
 			return fmt.Sprintf("%x", s)
@@ -94,7 +94,7 @@ func TestFfPreimageSha256Vectors(t *testing.T) {
 	// vector-specific variables
 	var vPreimage []byte
 	var vFf *FfPreimageSha256
-	//var vCond *Condition
+	//var vCond Condition
 
 	// Test vectors.
 	for _, v := range testFfPreimageSha256Vectors {
@@ -121,7 +121,7 @@ func TestFfPreimageSha256Vectors(t *testing.T) {
 
 		// Test if the fulfillment validates (with an empty message).
 
-		err := vFf.Validate(nil)
+		err := vFf.Validate(nil, nil)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment: %v", err)
 		}

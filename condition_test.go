@@ -42,7 +42,7 @@ func TestCondition_Equals(t *testing.T) {
 
 	// Test that cond1 is not equal to all other conds.
 
-	for _, cond := range []*Condition{cond2, cond3, cond4, cond5} {
+	for _, cond := range []Condition{cond2, cond3, cond4, cond5} {
 		if cond1.Equals(cond) {
 			t.Errorf("Conditions %s and %s should not be equal.", cond1, cond)
 		}

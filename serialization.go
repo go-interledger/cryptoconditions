@@ -7,7 +7,7 @@ import (
 )
 
 // DeserializeCondition reads a condition from the reader in binary format.
-func DeserializeCondition(r io.Reader) (*Condition, error) {
+func DeserializeCondition(r io.Reader) (Condition, error) {
 	var err error
 	c := new(Condition)
 	if c.Type, err = readConditionType(r); err != nil {
@@ -28,7 +28,7 @@ func DeserializeCondition(r io.Reader) (*Condition, error) {
 }
 
 // SerializeCondition writes the condition to the writer in binary format.
-func SerializeCondition(w io.Writer, c *Condition) error {
+func SerializeCondition(w io.Writer, c Condition) error {
 	// write condition type
 	if err := writeConditionType(w, c.Type); err != nil {
 		return errors.Wrap(err, "Failed to write condition type")
@@ -69,7 +69,7 @@ func DeserializeFulfillment(r io.Reader) (Fulfillment, error) {
 
 // SerializeFulfillment writes the fulfillment to the writer in binary format.
 func SerializeFulfillment(w io.Writer, ff Fulfillment) error {
-	if err := writeConditionType(w, ff.Type()); err != nil {
+	if err := writeConditionType(w, ff.ConditionType()); err != nil {
 		return errors.Wrap(err, "Failed to write condition type")
 	}
 	payload, err := ff.Payload()

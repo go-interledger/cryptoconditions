@@ -79,7 +79,7 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 	var vSffs []Fulfillment
 	var vSffWeights []uint32
 	var vFf *FfThresholdSha256
-	//var vCond *Condition
+	//var vCond Condition
 
 	// Test vectors.
 	for i, v := range testFfThresholdSha256Vectors {
@@ -109,16 +109,13 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 		}
 
 		// Perform the standard fulfillment tests.
-		ff, err := NewFfThresholdSha256(v.threshold, vSffs, vSffWeights)
-		if err != nil {
-			t.Fatalf("Failed to construct Threshold-SHA-256 fulfillment: %v", err)
-		}
+		ff := NewFfThresholdSha256(v.threshold, vSffs, vSffWeights)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 
 		// Test if the fulfillment validates (with an empty message).
 
-		err = vFf.Validate(v.message)
+		err := vFf.Validate(nil, v.message)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment: %v", err)
 		}

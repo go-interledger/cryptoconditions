@@ -8,7 +8,7 @@ import (
 
 func TestConditionUri(t *testing.T) {
 	var err error
-	var cond *Condition
+	var cond Condition
 
 	// Test that a valid URI is parsed correctly.
 
@@ -16,7 +16,7 @@ func TestConditionUri(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	cond, ok := c.(*Condition)
+	cond, ok := c.(Condition)
 	if ok == false {
 		t.Fatal("Typecast failed.")
 	}
@@ -142,8 +142,8 @@ func TestFulfillmentUri(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error generating (empty) payload.")
 	}
-	if ff.Type() != CTPreimageSha256 {
-		t.Errorf("Wrong ff type: %v", ff.Type())
+	if ff.ConditionType() != CTPreimageSha256 {
+		t.Errorf("Wrong ff type: %v", ff.ConditionType())
 	}
 	if len(pl) != 0 {
 		t.Errorf("Payload should be empty: %x", pl)

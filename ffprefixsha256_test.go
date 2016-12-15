@@ -58,7 +58,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 
 		// Test if it generates the correct fulfillment URIs when unfulfilled.
 
-		subCond, err := vSff.Condition()
+		subCond := vSff.Condition()
 		if err != nil {
 			t.Fatalf("Failed to calculate condition from sub-fulfillment: %v", err)
 		}
@@ -67,11 +67,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 		if err == nil {
 			t.Error("Should be impossible to generate a URI for an unfulfilled fulfillment.")
 		}
-		cond, err := ff.Condition()
-		if err != nil {
-			t.Errorf("Failed to generate condition: %v", err)
-		}
-		condUri, err := Uri(cond)
+		condUri, err := Uri(ff.Condition())
 		if err != nil {
 			t.Errorf("Error generating cond uri: %v", err)
 		}
@@ -81,7 +77,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 
 		// Test if the fulfillment validates (with an empty message).
 
-		err = vFf.Validate(nil)
+		err = vFf.Validate(nil, nil)
 		if err != nil {
 			t.Errorf("Failed to validate fulfillment: %v", err)
 		}

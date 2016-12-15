@@ -1,26 +1,55 @@
 package cryptoconditions
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 type Fulfillment interface {
 	// The condition type this fulfillment is intended for.
-	Type() ConditionType
+	ConditionType() ConditionType
 
 	// Generate condition.
-	Condition() (*Condition, error)
+	Condition() Condition
+	//TODO consider moving Condition away from here because the next two can make up for it
 
-	// Construct the fulfillment payload.
-	Payload() ([]byte, error)
+	fingerprint() []byte
 
-	// Populate this fulfillment from the payload.
-	ParsePayload([]byte) error
+	maxFulfillmentLength() int
 
-	// Validate returns nil if this fulfillment can be correctly validated.
-	// The message parameter is optional.
+	// Validate returns nil if this fulfillment correctly validates the given condition.
+	// The message parameter may be nil.
 	//TODO consider returning just bool and representing any underlying error as false
-	//TODO consider taking a *Condition as parameter to make sure it's validating the correct *Condition
-	Validate([]byte) error
+	Validate(Condition, []byte) error
 }
+
+type compoundConditionFulfillment interface {
+	subConditionTypeSet() *ConditionTypeSet
+}
+
+// fulfills determines if the fulfillment is able to fulfill the condition.
+// The trivial way of doing this is to compare the ff.Condition() with the condition. However, this requires the
+// generation of the condition while we can determine more efficiently whether or not they are going to match.
+func matches(ff Fulfillment, cond Condition) bool {
+	if ff.ConditionType() != cond.Type() {
+		return false
+	}
+
+	if ff.maxFulfillmentLength() > cond.MaxFulfillmentLength() {
+		return false
+	}
+
+	if !bytes.Equal(ff.fingerprint(), cond.Fingerprint()) {
+		return false
+	}
+
+	//TODO subtype check? or just condition check after all?
+	return ff.Condition().Equals(cond)
+}
+
+var fulfillmentDoesNotMatchConditionError = errors.New("The fulfillment does not match the given condition")
 
 // newFulfillmentByType creates an empty fulfillment object corresponding to the given type.
 func newFulfillmentByType(conditionType ConditionType) (Fulfillment, error) {
