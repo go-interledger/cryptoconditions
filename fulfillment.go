@@ -3,6 +3,8 @@ package cryptoconditions
 import (
 	"fmt"
 
+	"reflect"
+
 	"github.com/pkg/errors"
 )
 
@@ -24,28 +26,28 @@ type Fulfillment interface {
 	Validate(Condition, []byte) error
 }
 
+// compoundConditionFulfillment is an interface that fulfillments for compound conditions have to implement to be able
+// to indicate the condition types of their sub-fulfillments.
 type compoundConditionFulfillment interface {
 	subConditionTypeSet() *ConditionTypeSet
+}
+
+// fulfillmentTypeMap maps ConditionTypes to the corresponding Go type for the fulfillment for that condition.
+var fulfillmentTypeMap = map[ConditionType]reflect.Type{
+	CTEd25519:         reflect.TypeOf(FfEd25519{}),
+	CTPrefixSha256:    reflect.TypeOf(FfPrefixSha256{}),
+	CTPreimageSha256:  reflect.TypeOf(FfPreimageSha256{}),
+	CTRsaSha256:       reflect.TypeOf(FfRsaSha256{}),
+	CTThresholdSha256: reflect.TypeOf(FfThresholdSha256{}),
 }
 
 var fulfillmentDoesNotMatchConditionError = errors.New("The fulfillment does not match the given condition")
 
 // newFulfillmentByType creates an empty fulfillment object corresponding to the given type.
 func newFulfillmentByType(conditionType ConditionType) (Fulfillment, error) {
-	var ff Fulfillment
-	switch conditionType {
-	case CTEd25519:
-		ff = new(FfEd25519)
-	case CTPrefixSha256:
-		ff = new(FfPrefixSha256)
-	case CTPreimageSha256:
-		ff = new(FfPreimageSha256)
-	case CTRsaSha256:
-		ff = new(FfRsaSha256)
-	case CTThresholdSha256:
-		ff = new(FfThresholdSha256)
-	default:
+	ffType, ok := fulfillmentTypeMap[conditionType]
+	if !ok {
 		return nil, fmt.Errorf("Unknown condition type: %v", conditionType)
 	}
-	return ff, nil
+	return reflect.New(ffType).Interface().(Fulfillment), nil
 }

@@ -3,6 +3,7 @@ package cryptoconditions
 import (
 	"bytes"
 	"encoding/asn1"
+	"reflect"
 )
 
 // ConditionType represent one of the predefined condition types in the specification.
@@ -21,17 +22,21 @@ const (
 
 	// nbKnownConditionTypes is the number of known condition types. Assuming all code up till this number are known,
 	// comparing a code with nbKnownConditionTypes determines whether the code is known or not.
+	// This number should always be equal to `len(conditionTypeMap)` and `len(fulfillmentTypeMap)`.
 	nbKnownConditionTypes
 )
 
-// conditionCompoundMap is a map that maps every ConditionType to a boolean indicating whether or not it is a
-// compound type.
-var conditionCompoundMap = map[ConditionType]bool{
-	CTPreimageSha256:  false,
-	CTPrefixSha256:    true,
-	CTThresholdSha256: true,
-	CTRsaSha256:       false,
-	CTEd25519:         false,
+// Define these two types so that we don't have to call reflect.TypeOf for every type.
+var simpleConditionType, compoundConditionType = reflect.TypeOf(simpleCondition{}), reflect.TypeOf(compoundCondition{})
+
+// conditionTypeMap is a map that maps every ConditionType to either
+// the Go type for simpleCondition or compoundCondition.
+var conditionTypeMap = map[ConditionType]reflect.Type{
+	CTEd25519:         simpleConditionType,
+	CTPrefixSha256:    compoundConditionType,
+	CTPreimageSha256:  simpleConditionType,
+	CTThresholdSha256: compoundConditionType,
+	CTRsaSha256:       simpleConditionType,
 }
 
 // ConditionTypeSet represents a set of ConditionTypes.

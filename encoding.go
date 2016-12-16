@@ -2,7 +2,6 @@ package cryptoconditions
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/PromonLogicalis/asn1"
 	"github.com/pkg/errors"
@@ -47,48 +46,43 @@ func EncodeFulfillment(fulfillment Fulfillment) ([]byte, error) {
 	return encoded, nil
 }
 
+func DecodeFulfillment(encodedFulfillment []byte) (Fulfillment, error) {
+	var ff interface{}
+	rest, err := Asn1Context.DecodeWithOptions(encodedFulfillment, &ff, "choice:fulfillment")
+	if err != nil {
+		return nil, errors.Wrap(err, "ASN.1 decoding failed")
+	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("Encoding was not minimal. Excess bytes: %x", rest)
+	}
+	fmt.Printf("%T\n", ff)
+	fulfillment, ok := ff.(Fulfillment)
+	if !ok {
+		return nil, errors.New("Encoded object was not a fulfillment")
+	}
+	return fulfillment, nil
+}
+
 func buildAsn1Context() *asn1.Context {
 	ctx := asn1.NewContext()
+	// Enforce DER encoding and decoding.
 	ctx.SetDer(true, true)
 
 	// Define the Condition CHOICE element.
-	simpleType := reflect.TypeOf(simpleCondition{})
-	compoundType := reflect.TypeOf(compoundCondition{})
 	conditionChoices := make([]asn1.Choice, nbKnownConditionTypes)
-	for ct, isCompound := range conditionCompoundMap {
+	for ct, condType := range conditionTypeMap {
 		tag := fmt.Sprintf("tag:%v", ct)
-		if isCompound {
-			conditionChoices[ct] = asn1.Choice{Options: tag, Type: compoundType}
-		} else {
-			conditionChoices[ct] = asn1.Choice{Options: tag, Type: simpleType}
-		}
+		conditionChoices[ct] = asn1.Choice{Options: tag, Type: condType}
 	}
 	if err := ctx.AddChoice("condition", conditionChoices); err != nil {
 		panic(err)
 	}
 
 	// Define the Fulfillment CHOICE element.
-	fulfillmentChoices := []asn1.Choice{
-		{
-			Options: "tag:0",
-			Type:    reflect.TypeOf(FfPreimageSha256{}),
-		},
-		{
-			Options: "tag:1",
-			Type:    reflect.TypeOf(FfPrefixSha256{}),
-		},
-		{
-			Options: "tag:2",
-			Type:    reflect.TypeOf(FfThresholdSha256{}),
-		},
-		{
-			Options: "tag:3",
-			Type:    reflect.TypeOf(FfRsaSha256{}),
-		},
-		{
-			Options: "tag:4",
-			Type:    reflect.TypeOf(FfEd25519{}),
-		},
+	fulfillmentChoices := make([]asn1.Choice, nbKnownConditionTypes)
+	for ct, ffType := range fulfillmentTypeMap {
+		tag := fmt.Sprintf("tag:%v", ct)
+		fulfillmentChoices[ct] = asn1.Choice{Options: tag, Type: ffType}
 	}
 	if err := ctx.AddChoice("fulfillment", fulfillmentChoices); err != nil {
 		panic(err)
