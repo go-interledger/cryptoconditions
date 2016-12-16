@@ -30,11 +30,16 @@ func DecodeCondition(encodedCondition []byte) (Condition, error) {
 	if len(rest) != 0 {
 		return nil, fmt.Errorf("Encoding was not minimal. Excess bytes: %x", rest)
 	}
-	condition, ok := cond.(Condition)
-	if !ok {
+	switch cond.(type) {
+	case simpleCondition:
+		condition := cond.(simpleCondition)
+		return &condition, nil
+	case compoundCondition:
+		condition := cond.(compoundCondition)
+		return &condition, nil
+	default:
 		return nil, errors.New("Encoded object was not a condition")
 	}
-	return condition, nil
 }
 
 func EncodeFulfillment(fulfillment Fulfillment) ([]byte, error) {

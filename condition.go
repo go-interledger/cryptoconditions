@@ -146,25 +146,25 @@ type simpleCondition struct {
 	MaxFulfillmentLengthF int
 }
 
-func (c simpleCondition) Type() ConditionType {
+func (c *simpleCondition) Type() ConditionType {
 	return c.TypeF
 }
 
-func (c simpleCondition) Fingerprint() []byte {
+func (c *simpleCondition) Fingerprint() []byte {
 	return c.FingerprintF
 }
 
-func (c simpleCondition) MaxFulfillmentLength() int {
+func (c *simpleCondition) MaxFulfillmentLength() int {
 	return c.MaxFulfillmentLengthF
 }
 
-func (c simpleCondition) SubTypes() *ConditionTypeSet {
+func (c *simpleCondition) SubTypes() *ConditionTypeSet {
 	return nil
 }
 
-func (c simpleCondition) Equals(other Condition) bool {
+func (c *simpleCondition) Equals(other Condition) bool {
 	switch other.(type) {
-	case simpleCondition, *simpleCondition:
+	case *simpleCondition:
 		return c.Type() == other.Type() &&
 			bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
 			c.MaxFulfillmentLength() == other.MaxFulfillmentLength()
@@ -173,7 +173,7 @@ func (c simpleCondition) Equals(other Condition) bool {
 	}
 }
 
-func (c simpleCondition) String() string {
+func (c *simpleCondition) String() string {
 	uri, err := Uri(c)
 	if err != nil {
 		return "!Could not generate Condition's URI!"
@@ -187,13 +187,13 @@ type compoundCondition struct {
 	SubTypesF *ConditionTypeSet
 }
 
-func (c compoundCondition) SubTypes() *ConditionTypeSet {
+func (c *compoundCondition) SubTypes() *ConditionTypeSet {
 	return c.SubTypesF
 }
 
-func (c compoundCondition) Equals(other Condition) bool {
+func (c *compoundCondition) Equals(other Condition) bool {
 	switch other.(type) {
-	case compoundCondition, *compoundCondition:
+	case *compoundCondition:
 		return c.Type() == other.Type() &&
 			bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
 			c.MaxFulfillmentLength() == other.MaxFulfillmentLength() &&
@@ -203,7 +203,7 @@ func (c compoundCondition) Equals(other Condition) bool {
 	}
 }
 
-func (c compoundCondition) String() string {
+func (c *compoundCondition) String() string {
 	uri, err := Uri(c)
 	if err != nil {
 		return "!Could not generate Condition's URI!"
