@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/PromonLogicalis/asn1"
+	"github.com/pkg/errors"
 )
 
 // Asn1Context defines the ASN.1 context that is used to encode and decode objects.
@@ -16,16 +17,32 @@ func EncodeCondition(condition Condition) ([]byte, error) {
 	//TODO determine when an error is possible
 	encoded, err := Asn1Context.EncodeWithOptions(condition, "choice:condition")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ASN.1 encoding failed")
 	}
 	return encoded, nil
+}
+
+func DecodeCondition(encodedCondition []byte) (Condition, error) {
+	var cond interface{}
+	rest, err := Asn1Context.DecodeWithOptions(encodedCondition, &cond, "choice:condition")
+	if err != nil {
+		return nil, errors.Wrap(err, "ASN.1 decoding failed")
+	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("Encoding was not minimal. Excess bytes: %x", rest)
+	}
+	condition, ok := cond.(Condition)
+	if !ok {
+		return nil, errors.New("Encoded object was not a condition")
+	}
+	return condition, nil
 }
 
 func EncodeFulfillment(fulfillment Fulfillment) ([]byte, error) {
 	//TODO determine when an error is possible
 	encoded, err := Asn1Context.EncodeWithOptions(fulfillment, "choice:fulfillment")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ASN.1 encoding failed")
 	}
 	return encoded, nil
 }

@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	//TODO revert to upstream once #4 is merged
-	"github.com/kalaspuffar/base64url"
 	//"github.com/kalaspuffar/base64url"
 )
 
@@ -31,34 +29,33 @@ const (
 // Uri generates a URI for the given object.
 // Only objects of type Condition and Fulfillment are allowed.
 func Uri(obj interface{}) (string, error) {
-	switch obj.(type) {
-	case Condition:
-		return generateConditionUri(obj.(Condition)), nil
-	case Fulfillment:
-		return generateFulfillmentUri(obj.(Fulfillment))
-	}
+	//switch obj.(type) {
+	//case Condition:
+	//	return generateConditionUri(obj.(Condition)), nil
+	//case Fulfillment:
+	//	return generateFulfillmentUri(obj.(Fulfillment))
+	//}
 	return "", errors.New("Unknown object type, cannot generate URI.")
 }
 
-// conditionUri builds a URI for a Condition.
-func generateConditionUri(c Condition) string {
-	return fmt.Sprintf("cc:%x:%x:%s:%v",
-		c.Type,
-		c.Features,
-		base64url.Encode(c.Fingerprint),
-		c.MaxFulfillmentLength)
-}
-
-// fulfillmentUri builds a URI for a Fulfillment.
-func generateFulfillmentUri(ff Fulfillment) (string, error) {
-	payloadBytes, err := ff.Payload()
-	if err != nil {
-		return "", errors.Wrap(err, "Failed to generate fulfillment payload")
-	}
-	return fmt.Sprintf("cf:%x:%s",
-		ff.ConditionType(),
-		base64url.Encode(payloadBytes)), nil
-}
+//// conditionUri builds a URI for a Condition.
+//func generateConditionUri(c Condition) string {
+//	return fmt.Sprintf("cc:%x:%x:%s:%v",
+//		c.Type,
+//		base64url.Encode(c.Fingerprint()),
+//		c.MaxFulfillmentLength)
+//}
+//
+//// fulfillmentUri builds a URI for a Fulfillment.
+//func generateFulfillmentUri(ff Fulfillment) (string, error) {
+//	payloadBytes, err := EncodeFulfillment(ff)
+//	if err != nil {
+//		return "", errors.Wrap(err, "Failed to generate fulfillment payload")
+//	}
+//	return fmt.Sprintf("cf:%x:%s",
+//		ff.ConditionType(),
+//		base64url.Encode(payloadBytes)), nil
+//}
 
 // ParseUri parses a URI into an object.
 // Will either return
@@ -94,29 +91,29 @@ func ParseConditionUri(uri string) (Condition, error) {
 		return nil, fmt.Errorf("Wrong condition URI prefix: %s", parts[0])
 	}
 
-	condition := new(Condition)
-	var err error
-	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-		if ct >= uint64(nbKnownConditionTypes) {
-			return nil, fmt.Errorf("Unknown condition type %v", ct)
-		}
-		condition.Type = ConditionType(ct)
-	} else {
-		return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
-	}
-	if features, err := strconv.ParseUint(parts[2], 16, 8); err == nil {
-		condition.Features = Features(features)
-	} else {
-		return nil, errors.Wrapf(err, "Failed to parse uint8 from hex '%v'", parts[2])
-	}
-	if condition.Fingerprint, err = base64url.Decode(parts[3]); err != nil {
-		return nil, errors.Wrapf(err, "Failed to decode base64url encoding '%v'", parts[3])
-	}
-	if mfl, err := strconv.ParseUint(parts[4], 10, 32); err == nil {
-		condition.MaxFulfillmentLength = uint32(mfl)
-	} else {
-		return nil, errors.Wrapf(err, "Failed to parse uint32 from decimal '%v'", parts[4])
-	}
+	condition := new(simpleCondition)
+	//var err error
+	//if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
+	//	if ct >= uint64(nbKnownConditionTypes) {
+	//		return nil, fmt.Errorf("Unknown condition type %v", ct)
+	//	}
+	//	condition.Type = ConditionType(ct)
+	//} else {
+	//	return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
+	//}
+	//if features, err := strconv.ParseUint(parts[2], 16, 8); err == nil {
+	//	condition.Features = Features(features)
+	//} else {
+	//	return nil, errors.Wrapf(err, "Failed to parse uint8 from hex '%v'", parts[2])
+	//}
+	//if condition.Fingerprint, err = base64url.Decode(parts[3]); err != nil {
+	//	return nil, errors.Wrapf(err, "Failed to decode base64url encoding '%v'", parts[3])
+	//}
+	//if mfl, err := strconv.ParseUint(parts[4], 10, 32); err == nil {
+	//	condition.MaxFulfillmentLength = uint32(mfl)
+	//} else {
+	//	return nil, errors.Wrapf(err, "Failed to parse uint32 from decimal '%v'", parts[4])
+	//}
 
 	return condition, nil
 }
@@ -147,13 +144,13 @@ func ParseFulfillmentUri(uri string) (Fulfillment, error) {
 		return nil, errors.Wrapf(err, "Failed to create an empty fulfillment of type %v", conditionType)
 	}
 
-	payload, err := base64url.Decode(parts[2])
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to decode base64url encoding of '%v'", parts[2])
-	}
-	if err := ff.ParsePayload(payload); err != nil {
-		return nil, errors.Wrap(err, "Failed to parse fulfillment payload")
-	}
+	//payload, err := base64url.Decode(parts[2])
+	//if err != nil {
+	//	return nil, errors.Wrapf(err, "Failed to decode base64url encoding of '%v'", parts[2])
+	//}
+	//if err := ff.ParsePayload(payload); err != nil {
+	//	return nil, errors.Wrap(err, "Failed to parse fulfillment payload")
+	//}
 
 	return ff, nil
 }

@@ -1,7 +1,6 @@
 package cryptoconditions
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -27,26 +26,6 @@ type Fulfillment interface {
 
 type compoundConditionFulfillment interface {
 	subConditionTypeSet() *ConditionTypeSet
-}
-
-// fulfills determines if the fulfillment is able to fulfill the condition.
-// The trivial way of doing this is to compare the ff.Condition() with the condition. However, this requires the
-// generation of the condition while we can determine more efficiently whether or not they are going to match.
-func matches(ff Fulfillment, cond Condition) bool {
-	if ff.ConditionType() != cond.Type() {
-		return false
-	}
-
-	if ff.maxFulfillmentLength() > cond.MaxFulfillmentLength() {
-		return false
-	}
-
-	if !bytes.Equal(ff.fingerprint(), cond.Fingerprint()) {
-		return false
-	}
-
-	//TODO subtype check? or just condition check after all?
-	return ff.Condition().Equals(cond)
 }
 
 var fulfillmentDoesNotMatchConditionError = errors.New("The fulfillment does not match the given condition")
