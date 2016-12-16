@@ -109,7 +109,7 @@ func TestFfThresholdSha256Vectors(t *testing.T) {
 		}
 
 		// Perform the standard fulfillment tests.
-		ff := NewFfThresholdSha256(v.threshold, vSffs, vSffWeights)
+		ff := ThresholdSha256(v.threshold, vSffs, vSffWeights)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 

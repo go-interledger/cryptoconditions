@@ -95,7 +95,7 @@ func TestFfEd25519Vectors(t *testing.T) {
 
 		// construct signature
 		signature := ed25519.Sign(v.key, v.message)
-		ff := NewFfEd25519(v.key.Public().(ed25519.PublicKey), signature)
+		ff := Ed25519(v.key.Public().(ed25519.PublicKey), signature)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 

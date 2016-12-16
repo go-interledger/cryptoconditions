@@ -115,7 +115,7 @@ func TestFfPreimageSha256Vectors(t *testing.T) {
 
 		// Perform the standard fulfillment tests.
 
-		ff := NewFfPreimageSha256(vPreimage)
+		ff := PreimageSha256(vPreimage)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 

@@ -8,14 +8,14 @@ import (
 
 const ffEd25519EncodedSize = 102
 
-// FfEd25519 implements the Ed25519 fulfillment.
+// FfEd25519 implements the ED25519 fulfillment.
 type FfEd25519 struct {
 	PublicKey ed25519.PublicKey
 	Signature []byte
 }
 
-// NewFfEd25519 creates a new FfEd25519 fulfillment.
-func NewFfEd25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
+// Ed25519 creates a new ED25519 fulfillment.
+func Ed25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
 	return &FfEd25519{
 		PublicKey: pubkey,
 		Signature: signature,

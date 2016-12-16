@@ -9,15 +9,17 @@ import (
 // ConditionType represent one of the predefined condition types in the specification.
 type ConditionType int
 
+// All the condition types and their corresponding type codes.
 const (
+	// PREIMAGE-SHA-256
 	CTPreimageSha256 ConditionType = iota
-
+	// PREFIX-SHA-256
 	CTPrefixSha256
-
+	// THRESHOLD-SHA-256
 	CTThresholdSha256
-
+	// RSA-SHA-256
 	CTRsaSha256
-
+	// ED25519
 	CTEd25519
 
 	// nbKnownConditionTypes is the number of known condition types. Assuming all code up till this number are known,
@@ -25,6 +27,20 @@ const (
 	// This number should always be equal to `len(conditionTypeMap)` and `len(fulfillmentTypeMap)`.
 	nbKnownConditionTypes
 )
+
+// conditionTypeNames maps condition types to their human-readable names.
+// We use the names as they appear in the type registry section of the specification.
+var conditionTypeNames = map[ConditionType]string{
+	CTEd25519:         "ED25519",
+	CTPrefixSha256:    "PREFIX-SHA-256",
+	CTPreimageSha256:  "PREIMAGE-SHA-256",
+	CTThresholdSha256: "THRESHOLD-SHA-256",
+	CTRsaSha256:       "RSA-SHA-256",
+}
+
+func (ct ConditionType) String() string {
+	return conditionTypeNames[ct]
+}
 
 // Define these two types so that we don't have to call reflect.TypeOf for every type.
 var simpleConditionType, compoundConditionType = reflect.TypeOf(simpleCondition{}), reflect.TypeOf(compoundCondition{})
@@ -95,7 +111,7 @@ func (c *ConditionTypeSet) addRelevant(element interface{}) {
 		switch element.(type) {
 		case compoundConditionFulfillment:
 			ff := element.(compoundConditionFulfillment)
-			c.AddAll(ff.subConditionTypeSet())
+			c.AddAll(ff.subConditionsTypeSet())
 		}
 	case Condition:
 		cond := element.(Condition)
@@ -104,6 +120,7 @@ func (c *ConditionTypeSet) addRelevant(element interface{}) {
 	}
 }
 
+// Condition defines the condition interface.
 type Condition interface {
 	// Type returns the type of this condition.
 	Type() ConditionType
@@ -117,6 +134,10 @@ type Condition interface {
 	Equals(Condition) bool
 }
 
+//TODO consider not having these methods. It makes little sense for users to create loose conditions instead of
+// deriving them from a fulfillment.
+
+// NewSimpleCondition creates a new simple condition.
 func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, maxFulfillmentLength int) Condition {
 	return &simpleCondition{
 		TypeF:                 conditionType,
@@ -125,6 +146,7 @@ func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, maxFulf
 	}
 }
 
+// NewCompoundCondition creates a new compound condition.
 func NewCompoundCondition(conditionType ConditionType,
 	fingerprint []byte,
 	maxFulfillmentLength int,

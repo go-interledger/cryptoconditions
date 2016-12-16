@@ -69,7 +69,7 @@ func TestFfRsaSha256Vectors(t *testing.T) {
 
 		// Perform the standard fulfillment tests.
 
-		ff, err := NewFfRsaSha256(vModulus, vSignature)
+		ff, err := RsaSha256(vModulus, vSignature)
 		if err != nil {
 			t.Fatalf("Failed to construct RSA-SHA fulfillment: %v", err)
 		}

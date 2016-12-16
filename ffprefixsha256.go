@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// FfPrefixSha256 implements the Prefix-SHA-256 fulfillment.
+// FfPrefixSha256 implements the PREFIX-SHA-256 fulfillment.
 type FfPrefixSha256 struct {
 	Prefix []byte
 
@@ -16,21 +16,21 @@ type FfPrefixSha256 struct {
 	subCondition   Condition   `asn1:"-"`
 }
 
-// NewFfPrefixSha256 creates a new FfPrefixSha256 fulfillment.
-func NewFfPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
+// PrefixSha256 creates a new PREFIX-SHA-256 fulfillment.
+func PrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		Prefix:         prefix,
 		SubFulfillment: subFf,
 	}
 }
 
-// NewFfPrefixSha256Unfulfilled creates an unfulfilled FfPrefixSha256 fulfillment.
-func NewFfPrefixSha256Unfulfilled(prefix []byte, subCondition Condition) *FfPrefixSha256 {
+// PrefixSha256Unfulfilled creates an unfulfilled PREFIX-SHA-256 fulfillment.
+func PrefixSha256Unfulfilled(prefix []byte, subCondition Condition) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		Prefix:       prefix,
 		subCondition: subCondition,
 	}
-} //TODO consider if we need this
+} //TODO consider if we really need this
 
 func (ff *FfPrefixSha256) ConditionType() ConditionType {
 	return CTPrefixSha256
@@ -45,7 +45,7 @@ func (ff *FfPrefixSha256) SubCondition() Condition {
 	}
 }
 
-// IfFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a sub-fulfillment.
+// IsFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a sub-fulfillment.
 // If false, it only contains a sub-condition.
 func (ff *FfPrefixSha256) IsFulfilled() bool {
 	return ff.SubFulfillment != nil

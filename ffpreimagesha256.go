@@ -2,13 +2,13 @@ package cryptoconditions
 
 import "crypto/sha256"
 
-// FfPreimageSha256 implements the Preimage-SHA-256 fulfillment.
+// FfPreimageSha256 implements the PREIMAGE-SHA-256 fulfillment.
 type FfPreimageSha256 struct {
 	Preimage []byte
 }
 
-// NewFfPreimageSha256 creates a new FfPreimageSha256 fulfillment.
-func NewFfPreimageSha256(preimage []byte) *FfPreimageSha256 {
+// PreimageSha256 creates a new PREIMAGE-SHA-256 fulfillment.
+func PreimageSha256(preimage []byte) *FfPreimageSha256 {
 	return &FfPreimageSha256{
 		Preimage: preimage,
 	}

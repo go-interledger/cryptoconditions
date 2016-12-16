@@ -7,7 +7,7 @@ import (
 
 //TODO do we really need to incorporate for unfulfilled ones? it makes this file so much more complicated
 
-// FfThresholdSha256 implements the Threshold-SHA-256 fulfillment.
+// FfThresholdSha256 implements the THRESHOLD-SHA-256 fulfillment.
 type FfThresholdSha256 struct {
 	Threshold uint16
 
@@ -15,11 +15,11 @@ type FfThresholdSha256 struct {
 	SubConditions   []Condition   `asn1:"choice:condition"`
 }
 
-//TODO NORMALIZE METHOD that makes sure the FF is of minimal size by replacing (threshold - nbFulfillments) fulfillments
+//TODO ADD NORMALIZE METHOD that makes sure the FF is of minimal size by replacing (threshold - nbFulfillments) fulfillments
 // with their conditions, choosing those fulfillments that have the biggest (fulfillmentSize - conditionSize).
 
-// NewFfThresholdSha256 creates a new FfThresholdSha256 fulfillment.
-func NewFfThresholdSha256(threshold uint16, subFulfillments []Fulfillment, subConditions []Condition) *FfThresholdSha256 {
+// ThresholdSha256 creates a new THRESHOLD-SHA-256 fulfillment.
+func ThresholdSha256(threshold uint16, subFulfillments []Fulfillment, subConditions []Condition) *FfThresholdSha256 {
 	return &FfThresholdSha256{
 		Threshold:       threshold,
 		SubFulfillments: subFulfillments,

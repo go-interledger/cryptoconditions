@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	// The RSA parameters we have to use.
 	ffRsaSha256MinimumModulusLength = 128
 	ffRsaSha256MaximumModulusLength = 512
 	ffRsaSha256PublicExponent       = 65537
@@ -26,8 +27,8 @@ type FfRsaSha256 struct {
 	Signature []byte
 }
 
-// NewFfRsaSha256 creates a new FfRsaSha256 fulfillment.
-func NewFfRsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
+// RsaSha256 creates a new RSA-SHA-256 fulfillment.
+func RsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
 	// sanity check the modulus
 	modulusLength := len(modulus.Bytes())
 	if modulusLength < ffRsaSha256MinimumModulusLength {
