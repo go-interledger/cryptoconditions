@@ -21,7 +21,7 @@ var ffRsaSha256PssOpts rsa.PSSOptions = rsa.PSSOptions{
 	Hash:       crypto.SHA256,
 }
 
-// FfRsaSha256 implements the RSA-SHA-256 fulfillment.
+// NewFfRsaSha256 implements the RSA-SHA-256 fulfillment.
 type FfRsaSha256 struct {
 	PublicKey *rsa.PublicKey
 	Signature []byte

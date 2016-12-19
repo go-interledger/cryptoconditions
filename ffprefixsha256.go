@@ -16,7 +16,7 @@ type FfPrefixSha256 struct {
 	subCondition   Condition   `asn1:"-"`
 }
 
-// PrefixSha256 creates a new PREFIX-SHA-256 fulfillment.
+// NewPrefixSha256 creates a new PREFIX-SHA-256 fulfillment.
 func NewPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		Prefix:         prefix,
@@ -56,11 +56,10 @@ func (ff *FfPrefixSha256) Condition() Condition {
 }
 
 func (ff *FfPrefixSha256) fingerprint() []byte {
-	type fingerprintContent struct {
+	content := struct {
 		prefix       []byte
 		subCondition Condition `asn1:"choice:condition"`
-	}
-	content := fingerprintContent{
+	}{
 		prefix:       ff.Prefix,
 		subCondition: ff.SubCondition(),
 	}

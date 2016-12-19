@@ -7,7 +7,7 @@ type FfPreimageSha256 struct {
 	Preimage []byte
 }
 
-// PreimageSha256 creates a new PREIMAGE-SHA-256 fulfillment.
+// NewPreimageSha256 creates a new PREIMAGE-SHA-256 fulfillment.
 func NewPreimageSha256(preimage []byte) *FfPreimageSha256 {
 	return &FfPreimageSha256{
 		Preimage: preimage,

@@ -18,7 +18,7 @@ type FfThresholdSha256 struct {
 //TODO ADD NORMALIZE METHOD that makes sure the FF is of minimal size by replacing (threshold - nbFulfillments) fulfillments
 // with their conditions, choosing those fulfillments that have the biggest (fulfillmentSize - conditionSize).
 
-// ThresholdSha256 creates a new THRESHOLD-SHA-256 fulfillment.
+// NewThresholdSha256 creates a new THRESHOLD-SHA-256 fulfillment.
 func NewThresholdSha256(threshold uint16, subFulfillments []Fulfillment, subConditions []Condition) *FfThresholdSha256 {
 	return &FfThresholdSha256{
 		Threshold:       threshold,
