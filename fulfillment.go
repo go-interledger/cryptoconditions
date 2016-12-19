@@ -38,7 +38,7 @@ type compoundConditionFulfillment interface {
 
 // fulfillmentTypeMap maps ConditionTypes to the corresponding Go type for the fulfillment for that condition.
 var fulfillmentTypeMap = map[ConditionType]reflect.Type{
-	CTEd25519:         reflect.TypeOf(FfEd25519{}),
+	CTEd25519Sha256:   reflect.TypeOf(FfEd25519Sha256{}),
 	CTPrefixSha256:    reflect.TypeOf(FfPrefixSha256{}),
 	CTPreimageSha256:  reflect.TypeOf(FfPreimageSha256{}),
 	CTRsaSha256:       reflect.TypeOf(FfRsaSha256{}),

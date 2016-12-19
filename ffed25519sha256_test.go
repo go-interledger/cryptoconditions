@@ -17,13 +17,13 @@ func ed25519KeyFromSeed(seed []byte) ed25519.PrivateKey {
 	return ed25519.PrivateKey(seedHash[:])
 }
 
-type testFfEd25519Vector struct {
+type testFfEd25519Sha256Vector struct {
 	key            ed25519.PrivateKey
 	message        []byte
 	ffUri, condUri string
 }
 
-var testFfEd25519Vectors = []testFfEd25519Vector{
+var testFfEd25519Sha256Vectors = []testFfEd25519Sha256Vector{
 	{
 		ed25519KeyFromSeed(make([]byte, 32)),
 		nil,
@@ -44,7 +44,7 @@ var testFfEd25519Vectors = []testFfEd25519Vector{
 	},
 }
 
-func TestFfEd25519_Validate(t *testing.T) {
+func TestFfEd25519Sha256_Validate(t *testing.T) {
 
 	// Should accept a valid signature.
 
@@ -64,20 +64,20 @@ func TestFfEd25519_Validate(t *testing.T) {
 		t.Fatalf("ERROR parsing fulfillment URI: %v", err)
 	}
 	// invalidate the signature
-	ff.(*FfEd25519).Signature[4] |= 0x40
+	ff.(*FfEd25519Sha256).Signature[4] |= 0x40
 
 	if ff.Validate(nil, nil) == nil {
 		t.Error("Should not be able to validate invalid fulfillment")
 	}
 }
 
-func TestFfEd25519Vectors(t *testing.T) {
-	t.Log("Starting FfEd25519 vectors")
+func TestFfEd25519Sha256Vectors(t *testing.T) {
+	t.Log("Starting FfEd25519Sha256 vectors")
 	// vector-specific variables
-	var vFf *FfEd25519
+	var vFf *FfEd25519Sha256
 
 	// Test vectors.
-	for i, v := range testFfEd25519Vectors {
+	for i, v := range testFfEd25519Sha256Vectors {
 		t.Logf("Vector index %v", i)
 		// initialize the vector variables
 		var err error
@@ -85,7 +85,7 @@ func TestFfEd25519Vectors(t *testing.T) {
 			t.Fatalf("ERROR in fulfillment URI parsing: %v", err)
 		} else {
 			var ok bool
-			vFf, ok = ff.(*FfEd25519)
+			vFf, ok = ff.(*FfEd25519Sha256)
 			if !ok {
 				t.Fatalf("ERROR in casting ff: %v", err)
 			}
@@ -95,7 +95,7 @@ func TestFfEd25519Vectors(t *testing.T) {
 
 		// construct signature
 		signature := ed25519.Sign(v.key, v.message)
-		ff := NewEd25519(v.key.Public().(ed25519.PublicKey), signature)
+		ff := NewEd25519Sha256(v.key.Public().(ed25519.PublicKey), signature)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 

@@ -20,7 +20,7 @@ const (
 	// RSA-SHA-256
 	CTRsaSha256
 	// ED25519
-	CTEd25519
+	CTEd25519Sha256
 
 	// nbKnownConditionTypes is the number of known condition types. Assuming all code up till this number are known,
 	// comparing a code with nbKnownConditionTypes determines whether the code is known or not.
@@ -31,7 +31,7 @@ const (
 // conditionTypeNames maps condition types to their human-readable names.
 // We use the names as they appear in the type registry section of the specification.
 var conditionTypeNames = map[ConditionType]string{
-	CTEd25519:         "ED25519",
+	CTEd25519Sha256:   "ED25519",
 	CTPrefixSha256:    "PREFIX-SHA-256",
 	CTPreimageSha256:  "PREIMAGE-SHA-256",
 	CTThresholdSha256: "THRESHOLD-SHA-256",
@@ -48,7 +48,7 @@ var simpleConditionType, compoundConditionType = reflect.TypeOf(simpleCondition{
 // conditionTypeMap is a map that maps every ConditionType to either
 // the Go type for simpleCondition or compoundCondition.
 var conditionTypeMap = map[ConditionType]reflect.Type{
-	CTEd25519:         simpleConditionType,
+	CTEd25519Sha256:   simpleConditionType,
 	CTPrefixSha256:    compoundConditionType,
 	CTPreimageSha256:  simpleConditionType,
 	CTThresholdSha256: compoundConditionType,
@@ -196,9 +196,9 @@ type compoundCondition struct {
 
 // NewCompoundCondition creates a new compound condition.
 func NewCompoundCondition(conditionType ConditionType,
-fingerprint []byte,
-maxFulfillmentLength uint32,
-subTypes *ConditionTypeSet) Condition {
+	fingerprint []byte,
+	maxFulfillmentLength uint32,
+	subTypes *ConditionTypeSet) Condition {
 	return &compoundCondition{
 		simpleCondition: simpleCondition{
 			TypeF:                 conditionType,
