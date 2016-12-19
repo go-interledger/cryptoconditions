@@ -137,6 +137,13 @@ type Condition interface {
 //TODO consider not having these methods. It makes little sense for users to create loose conditions instead of
 // deriving them from a fulfillment.
 
+// simpleCondition represents a Condition that does not consist of sub-conditions.
+type simpleCondition struct {
+	TypeF                 ConditionType `asn:"-"`
+	FingerprintF          []byte
+	MaxFulfillmentLengthF uint32
+}
+
 // NewSimpleCondition creates a new simple condition.
 func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, maxFulfillmentLength int) Condition {
 	return &simpleCondition{
@@ -144,28 +151,6 @@ func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, maxFulf
 		FingerprintF:          fingerprint,
 		MaxFulfillmentLengthF: maxFulfillmentLength,
 	}
-}
-
-// NewCompoundCondition creates a new compound condition.
-func NewCompoundCondition(conditionType ConditionType,
-	fingerprint []byte,
-	maxFulfillmentLength int,
-	subTypes *ConditionTypeSet) Condition {
-	return &compoundCondition{
-		simpleCondition: simpleCondition{
-			TypeF:                 conditionType,
-			FingerprintF:          fingerprint,
-			MaxFulfillmentLengthF: maxFulfillmentLength,
-		},
-		SubTypesF: subTypes,
-	}
-}
-
-// simpleCondition represents a Condition that does not consist of sub-conditions.
-type simpleCondition struct {
-	TypeF                 ConditionType `asn:"-"`
-	FingerprintF          []byte
-	MaxFulfillmentLengthF int
 }
 
 func (c *simpleCondition) Type() ConditionType {
@@ -177,7 +162,7 @@ func (c *simpleCondition) Fingerprint() []byte {
 }
 
 func (c *simpleCondition) MaxFulfillmentLength() int {
-	return c.MaxFulfillmentLengthF
+	return int(c.MaxFulfillmentLengthF)
 }
 
 func (c *simpleCondition) SubTypes() *ConditionTypeSet {
@@ -207,6 +192,21 @@ func (c *simpleCondition) String() string {
 type compoundCondition struct {
 	simpleCondition
 	SubTypesF *ConditionTypeSet
+}
+
+// NewCompoundCondition creates a new compound condition.
+func NewCompoundCondition(conditionType ConditionType,
+fingerprint []byte,
+maxFulfillmentLength uint32,
+subTypes *ConditionTypeSet) Condition {
+	return &compoundCondition{
+		simpleCondition: simpleCondition{
+			TypeF:                 conditionType,
+			FingerprintF:          fingerprint,
+			MaxFulfillmentLengthF: maxFulfillmentLength,
+		},
+		SubTypesF: subTypes,
+	}
 }
 
 func (c *compoundCondition) SubTypes() *ConditionTypeSet {

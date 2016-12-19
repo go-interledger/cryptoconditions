@@ -17,7 +17,7 @@ type FfPrefixSha256 struct {
 }
 
 // PrefixSha256 creates a new PREFIX-SHA-256 fulfillment.
-func PrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
+func NewPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		Prefix:         prefix,
 		SubFulfillment: subFf,
@@ -25,7 +25,7 @@ func PrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
 }
 
 // PrefixSha256Unfulfilled creates an unfulfilled PREFIX-SHA-256 fulfillment.
-func PrefixSha256Unfulfilled(prefix []byte, subCondition Condition) *FfPrefixSha256 {
+func NewPrefixSha256Unfulfilled(prefix []byte, subCondition Condition) *FfPrefixSha256 {
 	return &FfPrefixSha256{
 		Prefix:       prefix,
 		subCondition: subCondition,

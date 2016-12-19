@@ -28,7 +28,7 @@ type FfRsaSha256 struct {
 }
 
 // RsaSha256 creates a new RSA-SHA-256 fulfillment.
-func RsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
+func NewRsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
 	// sanity check the modulus
 	modulusLength := len(modulus.Bytes())
 	if modulusLength < ffRsaSha256MinimumModulusLength {

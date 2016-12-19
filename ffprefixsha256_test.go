@@ -52,7 +52,7 @@ func TestFfPrefixSha256Vectors(t *testing.T) {
 
 		// Perform the standard fulfillment tests.
 
-		ff := PrefixSha256(v.prefix, vSff)
+		ff := NewPrefixSha256(v.prefix, vSff)
 		standardFulfillmentTest(t, ff, v.ffUri, v.condUri)
 		standardFulfillmentTest(t, vFf, v.ffUri, v.condUri)
 

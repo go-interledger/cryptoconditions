@@ -15,7 +15,7 @@ type FfEd25519 struct {
 }
 
 // Ed25519 creates a new ED25519 fulfillment.
-func Ed25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
+func NewEd25519(pubkey ed25519.PublicKey, signature []byte) *FfEd25519 {
 	return &FfEd25519{
 		PublicKey: pubkey,
 		Signature: signature,
