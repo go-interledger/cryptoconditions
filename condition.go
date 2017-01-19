@@ -141,7 +141,7 @@ type Condition interface {
 type simpleCondition struct {
 	TypeF                 ConditionType `asn:"-"`
 	FingerprintF          []byte
-	MaxFulfillmentLengthF uint32
+	MaxFulfillmentLengthF int
 }
 
 // NewSimpleCondition creates a new simple condition.
@@ -162,7 +162,7 @@ func (c *simpleCondition) Fingerprint() []byte {
 }
 
 func (c *simpleCondition) MaxFulfillmentLength() int {
-	return int(c.MaxFulfillmentLengthF)
+	return c.MaxFulfillmentLengthF
 }
 
 func (c *simpleCondition) SubTypes() *ConditionTypeSet {
@@ -197,7 +197,7 @@ type compoundCondition struct {
 // NewCompoundCondition creates a new compound condition.
 func NewCompoundCondition(conditionType ConditionType,
 	fingerprint []byte,
-	maxFulfillmentLength uint32,
+	maxFulfillmentLength int,
 	subTypes *ConditionTypeSet) Condition {
 	return &compoundCondition{
 		simpleCondition: simpleCondition{

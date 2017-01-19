@@ -33,7 +33,8 @@ func (ff *FfEd25519Sha256) Condition() Condition {
 }
 
 func (ff *FfEd25519Sha256) fingerprint() []byte {
-	return sha256.Sum256(ff.PublicKey)
+	hash := sha256.Sum256(ff.PublicKey)
+	return hash[:]
 }
 
 func (ff *FfEd25519Sha256) maxFulfillmentLength() int {
