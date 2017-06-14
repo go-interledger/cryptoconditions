@@ -4,7 +4,7 @@ import "crypto/sha256"
 
 // FfPreimageSha256 implements the PREIMAGE-SHA-256 fulfillment.
 type FfPreimageSha256 struct {
-	Preimage []byte
+	Preimage []byte `asn1:"tag:0"`
 }
 
 // NewPreimageSha256 creates a new PREIMAGE-SHA-256 fulfillment.
@@ -14,36 +14,36 @@ func NewPreimageSha256(preimage []byte) *FfPreimageSha256 {
 	}
 }
 
-func (ff *FfPreimageSha256) ConditionType() ConditionType {
+func (f *FfPreimageSha256) ConditionType() ConditionType {
 	return CTPreimageSha256
 }
 
-func (ff *FfPreimageSha256) Condition() Condition {
-	return NewSimpleCondition(ff.ConditionType(), ff.fingerprint(), ff.maxFulfillmentLength())
+func (f *FfPreimageSha256) fingerprintContents() []byte {
+	return f.Preimage
 }
 
-func (ff *FfPreimageSha256) fingerprint() []byte {
-	hash := sha256.Sum256(ff.Preimage)
+func (f *FfPreimageSha256) fingerprint() []byte {
+	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (ff *FfPreimageSha256) maxFulfillmentLength() int {
-	return len(ff.Preimage)
+func (f *FfPreimageSha256) cost() int {
+	return len(f.Preimage)
 }
 
-func (ff *FfPreimageSha256) Validate(condition Condition, message []byte) error {
-	if !matches(ff, condition) {
+func (f *FfPreimageSha256) Condition() Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+}
+
+func (f *FfPreimageSha256) Encode() ([]byte, error) {
+	return encodeFulfillment(f)
+}
+
+func (f *FfPreimageSha256) Validate(condition Condition, message []byte) error {
+	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}
 
 	// For a preimage fulfillment, no additional check is required.
 	return nil
-}
-
-func (ff *FfPreimageSha256) String() string {
-	uri, err := Uri(ff)
-	if err != nil {
-		return "!Could not generate Fulfillment's URI!"
-	}
-	return uri
 }

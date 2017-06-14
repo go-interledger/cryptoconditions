@@ -9,111 +9,128 @@ import (
 
 // FfPrefixSha256 implements the PREFIX-SHA-256 fulfillment.
 type FfPrefixSha256 struct {
-	Prefix []byte
+	Prefix           []byte `asn1:"tag:0"`
+	MaxMessageLength uint32 `asn1:"tag:1"`
 
 	// Only have either a sub-fulfillment or a sub-condition.
-	SubFulfillment Fulfillment `asn1:"choice:fulfillment"`
+	SubFulfillment Fulfillment `asn1:"tag:2,choice:fulfillment"`
 	subCondition   Condition   `asn1:"-"`
 }
 
 // NewPrefixSha256 creates a new PREFIX-SHA-256 fulfillment.
-func NewPrefixSha256(prefix []byte, subFf Fulfillment) *FfPrefixSha256 {
+func NewPrefixSha256(prefix []byte, maxMessageLength uint32, subFf Fulfillment) *FfPrefixSha256 {
 	return &FfPrefixSha256{
-		Prefix:         prefix,
-		SubFulfillment: subFf,
+		Prefix:           prefix,
+		MaxMessageLength: maxMessageLength,
+		SubFulfillment:   subFf,
 	}
 }
 
 // PrefixSha256Unfulfilled creates an unfulfilled PREFIX-SHA-256 fulfillment.
-func NewPrefixSha256Unfulfilled(prefix []byte, subCondition Condition) *FfPrefixSha256 {
+func NewPrefixSha256Unfulfilled(prefix []byte, maxMessageLength uint32, subCondition Condition) *FfPrefixSha256 {
 	return &FfPrefixSha256{
-		Prefix:       prefix,
-		subCondition: subCondition,
+		Prefix:           prefix,
+		MaxMessageLength: maxMessageLength,
+		subCondition:     subCondition,
 	}
 } //TODO consider if we really need this
 
-func (ff *FfPrefixSha256) ConditionType() ConditionType {
+func (f *FfPrefixSha256) ConditionType() ConditionType {
 	return CTPrefixSha256
 }
 
 // SubCondition returns the sub-condition of this fulfillment.
-func (ff *FfPrefixSha256) SubCondition() Condition {
-	if ff.IsFulfilled() {
-		return ff.SubFulfillment.Condition()
+func (f *FfPrefixSha256) SubCondition() Condition {
+	if f.IsFulfilled() {
+		return f.SubFulfillment.Condition()
 	} else {
-		return ff.subCondition
+		return f.subCondition
 	}
 }
 
-// IsFulfilled returns true if this fulfillment is fulfilled, i.e. when it contains a sub-fulfillment.
+// IsFulfilled returns true if this fulfillment is fulfilled,
+// i.e. when it contains a sub-fulfillment.
 // If false, it only contains a sub-condition.
-func (ff *FfPrefixSha256) IsFulfilled() bool {
-	return ff.SubFulfillment != nil
+func (f *FfPrefixSha256) IsFulfilled() bool {
+	return f.SubFulfillment != nil
 }
 
-func (ff *FfPrefixSha256) Condition() Condition {
-	return NewCompoundCondition(ff.ConditionType(), ff.fingerprint(), ff.maxFulfillmentLength(), ff.subConditionTypeSet())
-}
-
-func (ff *FfPrefixSha256) fingerprint() []byte {
+func (f *FfPrefixSha256) fingerprintContents() []byte {
 	content := struct {
-		prefix       []byte
-		subCondition Condition `asn1:"choice:condition"`
+		Prefix           []byte
+		MaxMessageLength uint32
+		SubCondition     Condition `asn1:"choice:condition"`
 	}{
-		prefix:       ff.Prefix,
-		subCondition: ff.SubCondition(),
+		Prefix:           f.Prefix,
+		MaxMessageLength: f.MaxMessageLength,
+		SubCondition:     f.SubCondition(),
 	}
 
-	encoded, err := Asn1Context.Encode(content)
+	encoded, err := ASN1Context.Encode(content)
 	if err != nil {
 		//TODO
 		panic(err)
 	}
-	hash := sha256.Sum256(encoded)
+
+	return encoded
+}
+
+func (f *FfPrefixSha256) fingerprint() []byte {
+	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (ff *FfPrefixSha256) maxFulfillmentLength() int {
-	encodedPrefix, err := Asn1Context.EncodeWithOptions(ff.Prefix, "tag:0")
+func (f *FfPrefixSha256) cost() int {
+	encodedPrefix, err := ASN1Context.EncodeWithOptions(f.Prefix, "tag:0")
 	if err != nil {
 		//TODO
 		panic(err)
 	}
-	return len(encodedPrefix) + ff.SubCondition().MaxFulfillmentLength()
+	return len(encodedPrefix) +
+		int(f.MaxMessageLength) +
+		f.SubCondition().Cost() +
+		1024
 }
 
-func (ff *FfPrefixSha256) subConditionTypeSet() *ConditionTypeSet {
-	set := new(ConditionTypeSet)
-	if ff.IsFulfilled() {
-		set.addRelevant(ff.SubFulfillment)
+func (f *FfPrefixSha256) subConditionTypeSet() ConditionTypeSet {
+	var set ConditionTypeSet
+	if f.IsFulfilled() {
+		set = set.addRelevant(f.SubFulfillment)
 	} else {
-		set.addRelevant(ff.subCondition)
+		set = set.addRelevant(f.subCondition)
 	}
 	return set
 }
 
-func (ff *FfPrefixSha256) Validate(condition Condition, message []byte) error {
-	if !matches(ff, condition) {
+func (f *FfPrefixSha256) Condition() Condition {
+	return NewCompoundCondition(f.ConditionType(), f.fingerprint(),
+		f.cost(), f.subConditionTypeSet())
+}
+
+func (f *FfPrefixSha256) Encode() ([]byte, error) {
+	return encodeFulfillment(f)
+}
+
+func (f *FfPrefixSha256) Validate(condition Condition, message []byte) error {
+	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}
 
-	if !ff.IsFulfilled() {
-		return errors.New("Cannot validate unfulfilled fulfillment.")
+	if !f.IsFulfilled() {
+		return errors.New("cannot validate unfulfilled fulfillment.")
+	}
+
+	if len(message) > int(f.MaxMessageLength) {
+		return errors.Errorf(
+			"message length of %d exceeds limit of %d",
+			len(message), f.MaxMessageLength)
 	}
 
 	buffer := new(bytes.Buffer)
-	buffer.Write(ff.Prefix)
+	buffer.Write(f.Prefix)
 	buffer.Write(message)
 	newMessage := buffer.Bytes()
 
-	err := ff.SubFulfillment.Validate(nil, newMessage)
-	return errors.Wrapf(err, "Failed to validate sub-fulfillment with message %x", newMessage)
-}
-
-func (ff *FfPrefixSha256) String() string {
-	uri, err := Uri(ff)
-	if err != nil {
-		return "!Could not generate Fulfillment's URI!"
-	}
-	return uri
+	return errors.Wrapf(f.SubFulfillment.Validate(nil, newMessage),
+		"failed to validate sub-fulfillment with message %x", newMessage)
 }

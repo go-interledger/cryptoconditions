@@ -1,9 +1,0 @@
-package: github.com/go-interledger/cryptoconditions
-import:
-- package: github.com/PromonLogicalis/asn1
-  repo: https://github.com/stevenroose/asn1
-- package: github.com/pkg/errors
-  version: ^0.8.0
-- package: golang.org/x/crypto
-  subpackages:
-  - ed25519

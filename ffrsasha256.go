@@ -23,80 +23,74 @@ var ffRsaSha256PssOpts rsa.PSSOptions = rsa.PSSOptions{
 
 // NewFfRsaSha256 implements the RSA-SHA-256 fulfillment.
 type FfRsaSha256 struct {
-	PublicKey *rsa.PublicKey
-	Signature []byte
+	Modulus   []byte `asn1:"tag:0"`
+	Signature []byte `asn1:"tag:1"`
 }
 
 // RsaSha256 creates a new RSA-SHA-256 fulfillment.
-func NewRsaSha256(modulus *big.Int, signature []byte) (*FfRsaSha256, error) {
-	// sanity check the modulus
-	modulusLength := len(modulus.Bytes())
-	if modulusLength < ffRsaSha256MinimumModulusLength {
-		return nil, errors.New("Modulus is too small.")
+func NewRsaSha256(modulus []byte, signature []byte) (*FfRsaSha256, error) {
+	if len(modulus) < ffRsaSha256MinimumModulusLength {
+		return nil, errors.New("modulus is too small.")
 	}
-	if modulusLength > ffRsaSha256MaximumModulusLength {
-		return nil, errors.New("Modulus is too large.")
-	}
-	//TODO are these required? present in Java, not in JS
-	if modulusLength != len(signature) {
-		return nil, errors.New("Modulus and signature must be of the same size.")
-	}
-	if modulus.Cmp(new(big.Int).SetBytes(signature)) < 0 {
-		return nil, errors.New("Modulus must be larger, numerically, than signature.")
+	if len(modulus) > ffRsaSha256MaximumModulusLength {
+		return nil, errors.New("modulus is too large.")
 	}
 
 	return &FfRsaSha256{
-		PublicKey: &rsa.PublicKey{
-			N: modulus,
-			E: ffRsaSha256PublicExponent,
-		},
+		Modulus:   modulus,
 		Signature: signature,
 	}, nil
 }
 
-func (ff *FfRsaSha256) ConditionType() ConditionType {
+func (f *FfRsaSha256) PublicKey() *rsa.PublicKey {
+	return &rsa.PublicKey{
+		N: new(big.Int).SetBytes(f.Modulus),
+		E: ffRsaSha256PublicExponent,
+	}
+}
+
+func (f *FfRsaSha256) ConditionType() ConditionType {
 	return CTRsaSha256
 }
 
-func (ff *FfRsaSha256) Condition() Condition {
-	return NewSimpleCondition(ff.ConditionType(), ff.fingerprint(), ff.maxFulfillmentLength())
-}
+func (f *FfRsaSha256) fingerprintContents() []byte {
+	content := struct {
+		Modulus []byte `asn1:"tag:0"`
+	}{
+		Modulus: f.Modulus,
+	}
 
-func (ff *FfRsaSha256) fingerprint() []byte {
-	// Fingerprint content is equal to the RSA public key
-	encoded, err := Asn1Context.Encode(ff.PublicKey)
+	encoded, err := ASN1Context.Encode(content)
 	if err != nil {
 		//TODO
 		panic(err)
 	}
-	hash := sha256.Sum256(encoded)
+
+	return encoded
+}
+
+func (f *FfRsaSha256) fingerprint() []byte {
+	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (ff *FfRsaSha256) maxFulfillmentLength() int {
-	//TODO VERIFY
-	// Fingerprint content is equal to the RSA public key
-	encoded, err := Asn1Context.Encode(ff.PublicKey)
-	if err != nil {
-		//TODO
-		panic(err)
-	}
-	return 2 * len(encoded)
+func (f *FfRsaSha256) cost() int {
+	return len(f.Modulus) ^ 2
 }
 
-func (ff *FfRsaSha256) Validate(condition Condition, message []byte) error {
-	if !matches(ff, condition) {
+func (f *FfRsaSha256) Condition() Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+}
+
+func (f *FfRsaSha256) Encode() ([]byte, error) {
+	return encodeFulfillment(f)
+}
+
+func (f *FfRsaSha256) Validate(condition Condition, message []byte) error {
+	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}
 
-	err := rsa.VerifyPSS(ff.PublicKey, crypto.SHA256, message, ff.Signature, &ffRsaSha256PssOpts)
+	err := rsa.VerifyPSS(f.PublicKey(), crypto.SHA256, message, f.Signature, &ffRsaSha256PssOpts)
 	return errors.Wrapf(err, "Failed to verify RSA signature of message %x", message)
-}
-
-func (ff *FfRsaSha256) String() string {
-	uri, err := Uri(ff)
-	if err != nil {
-		return "!Could not generate Fulfillment's URI!"
-	}
-	return uri
 }

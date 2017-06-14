@@ -2,11 +2,13 @@ package cryptoconditions
 
 import (
 	"bytes"
-	"encoding/asn1"
 	"reflect"
+
+	"github.com/stevenroose/asn1"
 )
 
-// ConditionType represent one of the predefined condition types in the specification.
+// ConditionType represent one of the predefined condition types in the
+// specification.
 type ConditionType int
 
 // All the condition types and their corresponding type codes.
@@ -22,14 +24,17 @@ const (
 	// ED25519
 	CTEd25519Sha256
 
-	// nbKnownConditionTypes is the number of known condition types. Assuming all code up till this number are known,
-	// comparing a code with nbKnownConditionTypes determines whether the code is known or not.
-	// This number should always be equal to `len(conditionTypeMap)` and `len(fulfillmentTypeMap)`.
+	// nbKnownConditionTypes is the number of known condition types.
+	// Assuming all code up till this number are known, comparing a code with
+	// nbKnownConditionTypes determines whether the code is known or not.
+	// This number should always be equal to
+	// `len(conditionTypeMap)` and `len(fulfillmentTypeMap)`.
 	nbKnownConditionTypes
 )
 
 // conditionTypeNames maps condition types to their human-readable names.
-// We use the names as they appear in the type registry section of the specification.
+// We use the names as they appear in the type registry section of the
+// specification.
 var conditionTypeNames = map[ConditionType]string{
 	CTEd25519Sha256:   "ED25519",
 	CTPrefixSha256:    "PREFIX-SHA-256",
@@ -38,11 +43,22 @@ var conditionTypeNames = map[ConditionType]string{
 	CTRsaSha256:       "RSA-SHA-256",
 }
 
+// conditionTypeDictionary maps condition type names to the corresponding
+// condition types.
+var conditionTypeDictionary = map[string]ConditionType{
+	"ED25519":           CTEd25519Sha256,
+	"PREFIX-SHA-256":    CTPrefixSha256,
+	"PREIMAGE-SHA-256":  CTPreimageSha256,
+	"THRESHOLD-SHA-256": CTThresholdSha256,
+	"RSA-SHA-256":       CTRsaSha256,
+}
+
 func (ct ConditionType) String() string {
 	return conditionTypeNames[ct]
 }
 
-// Define these two types so that we don't have to call reflect.TypeOf for every type.
+// Define these two types so that we don't have to call
+// reflect.TypeOf for every type.
 var simpleConditionType, compoundConditionType = reflect.TypeOf(simpleCondition{}), reflect.TypeOf(compoundCondition{})
 
 // conditionTypeMap is a map that maps every ConditionType to either
@@ -64,13 +80,14 @@ func (c ConditionTypeSet) Has(conditionType ConditionType) bool {
 	return asn1.BitString(c).At(int(conditionType)) == 1
 }
 
-// Equals returns true if `other` represents the same condition type set as this. False otherwise.
-func (c *ConditionTypeSet) Equals(other *ConditionTypeSet) bool {
+// Equals returns true if `other` represents the same condition type set as
+// this. False otherwise.
+func (c ConditionTypeSet) Equals(other ConditionTypeSet) bool {
 	return bytes.Equal(c.Bytes, other.Bytes) && c.BitLength == other.BitLength
 }
 
 // Add adds the given condition type to the set.
-func (c *ConditionTypeSet) Add(conditionType ConditionType) {
+func (c ConditionTypeSet) Add(conditionType ConditionType) ConditionTypeSet {
 	newBitLength := max(c.BitLength, int(conditionType))
 	if newBitLength > c.BitLength {
 		// See if we need to extend the byte array.
@@ -84,14 +101,17 @@ func (c *ConditionTypeSet) Add(conditionType ConditionType) {
 	ct := uint(conditionType)
 	byteNumber := ct / 8
 	c.Bytes[byteNumber] |= 1 << ct % 8
+
+	return c
 }
 
 // AddAll adds all the condition types from other to this set.
-func (c *ConditionTypeSet) AddAll(other *ConditionTypeSet) {
+func (c ConditionTypeSet) AddAll(other ConditionTypeSet) ConditionTypeSet {
 	// New bit length is the higher one of both.
 	c.BitLength = max(c.BitLength, other.BitLength)
 
-	// We can add them together by binary ORing all bytes and copying bytes from other if it is longer.
+	// We can add them together by binary ORing all bytes and copying bytes
+	// from other if it is longer.
 	for i, b := range other.Bytes {
 		if i < len(c.Bytes) {
 			c.Bytes[i] |= b
@@ -99,25 +119,28 @@ func (c *ConditionTypeSet) AddAll(other *ConditionTypeSet) {
 			c.Bytes = append(c.Bytes, b)
 		}
 	}
+
+	return c
 }
 
-// addElement adds all the relevant condition types of the element to the condition type set.
+// addElement adds all the relevant condition types of the element to the
+// condition type set.
 // Accepted objects are Condition, Fulfillment and compoundConditionFulfillment.
-func (c *ConditionTypeSet) addRelevant(element interface{}) {
+func (c ConditionTypeSet) addRelevant(element interface{}) ConditionTypeSet {
 	switch element.(type) {
 	case Fulfillment:
 		ff := element.(Fulfillment)
-		c.Add(ff.ConditionType())
-		switch element.(type) {
-		case compoundConditionFulfillment:
-			ff := element.(compoundConditionFulfillment)
-			c.AddAll(ff.subConditionsTypeSet())
+		c = c.Add(ff.ConditionType())
+		if compound, ok := element.(compoundConditionFulfillment); ok {
+			c = c.AddAll(compound.subConditionsTypeSet())
 		}
 	case Condition:
 		cond := element.(Condition)
-		c.Add(cond.Type())
-		c.AddAll(cond.SubTypes())
+		c = c.Add(cond.Type())
+		c = c.AddAll(cond.SubTypes())
 	}
+
+	return c
 }
 
 // Condition defines the condition interface.
@@ -126,30 +149,36 @@ type Condition interface {
 	Type() ConditionType
 	// Fingerprint returns the fingerprint of this condition.
 	Fingerprint() []byte
-	// MaxFulfillmentLength returns the maximum size of an encoded fulfillment for this condition.
-	MaxFulfillmentLength() int
-	// SubTypes returns the condition types of the sub-conditions of this condition.
-	SubTypes() *ConditionTypeSet
+	// Cost returns the cost metric of a fulfillment for this condition.
+	Cost() int
+	// SubTypes returns the condition types of the
+	// sub-conditions of this condition.
+	SubTypes() ConditionTypeSet
 	// Equals checks if this condition equals the other.
 	Equals(Condition) bool
+	// URI returns the URI for this condition.
+	URI() string
+	// Encode encodes the condition in binary format.
+	Encode() ([]byte, error)
+}
+
+// simpleCondition represents a Condition that
+// does not consist of sub-conditions.
+type simpleCondition struct {
+	TypeF        ConditionType `asn1:"-"`
+	FingerprintF []byte        `asn1:"tag:0"`
+	CostF        int           `asn1:"tag:1"`
 }
 
 //TODO consider not having these methods. It makes little sense for users to create loose conditions instead of
 // deriving them from a fulfillment.
 
-// simpleCondition represents a Condition that does not consist of sub-conditions.
-type simpleCondition struct {
-	TypeF                 ConditionType `asn:"-"`
-	FingerprintF          []byte
-	MaxFulfillmentLengthF int
-}
-
 // NewSimpleCondition creates a new simple condition.
-func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, maxFulfillmentLength int) Condition {
+func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, cost int) Condition {
 	return &simpleCondition{
-		TypeF:                 conditionType,
-		FingerprintF:          fingerprint,
-		MaxFulfillmentLengthF: maxFulfillmentLength,
+		TypeF:        conditionType,
+		FingerprintF: fingerprint,
+		CostF:        cost,
 	}
 }
 
@@ -161,74 +190,83 @@ func (c *simpleCondition) Fingerprint() []byte {
 	return c.FingerprintF
 }
 
-func (c *simpleCondition) MaxFulfillmentLength() int {
-	return c.MaxFulfillmentLengthF
+func (c *simpleCondition) Cost() int {
+	return c.CostF
 }
 
-func (c *simpleCondition) SubTypes() *ConditionTypeSet {
-	return nil
+func (c *simpleCondition) SubTypes() ConditionTypeSet {
+	return ConditionTypeSet{}
 }
 
 func (c *simpleCondition) Equals(other Condition) bool {
-	switch other.(type) {
-	case *simpleCondition:
-		return c.Type() == other.Type() &&
-			bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
-			c.MaxFulfillmentLength() == other.MaxFulfillmentLength()
-	default:
+	if _, ok := other.(*simpleCondition); !ok {
 		return false
 	}
+	return c.Type() == other.Type() &&
+		bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
+		c.Cost() == other.Cost()
 }
 
-func (c *simpleCondition) String() string {
-	uri, err := Uri(c)
-	if err != nil {
-		return "!Could not generate Condition's URI!"
-	}
-	return uri
+func (c *simpleCondition) Encode() ([]byte, error) {
+	return encodeCondition(c)
 }
 
-// compoundCondition represents a Condition that does consist of sub-conditions.
+func (c *simpleCondition) URI() string { return generateURI(c) }
+
+func (c *simpleCondition) String() string { return c.URI() }
+
+// compoundCondition represents a Condition that
+// does consist of sub-conditions.
 type compoundCondition struct {
-	simpleCondition
-	SubTypesF *ConditionTypeSet
+	TypeF        ConditionType  `asn1:"-"`
+	FingerprintF []byte         `asn1:"tag:0"`
+	CostF        int            `asn1:"tag:1"`
+	SubTypesF    asn1.BitString `asn1:"tag:2"`
 }
 
 // NewCompoundCondition creates a new compound condition.
 func NewCompoundCondition(conditionType ConditionType,
-	fingerprint []byte,
-	maxFulfillmentLength int,
-	subTypes *ConditionTypeSet) Condition {
+	fingerprint []byte, cost int,
+	subTypes ConditionTypeSet) Condition {
 	return &compoundCondition{
-		simpleCondition: simpleCondition{
-			TypeF:                 conditionType,
-			FingerprintF:          fingerprint,
-			MaxFulfillmentLengthF: maxFulfillmentLength,
-		},
-		SubTypesF: subTypes,
+		TypeF:        conditionType,
+		FingerprintF: fingerprint,
+		CostF:        cost,
+		SubTypesF:    asn1.BitString(subTypes),
 	}
 }
 
-func (c *compoundCondition) SubTypes() *ConditionTypeSet {
-	return c.SubTypesF
+func (c *compoundCondition) Type() ConditionType {
+	return c.TypeF
+}
+
+func (c *compoundCondition) Fingerprint() []byte {
+	return c.FingerprintF
+}
+
+func (c *compoundCondition) Cost() int {
+	return c.CostF
+}
+
+func (c *compoundCondition) SubTypes() ConditionTypeSet {
+	return ConditionTypeSet(c.SubTypesF)
 }
 
 func (c *compoundCondition) Equals(other Condition) bool {
-	switch other.(type) {
-	case *compoundCondition:
-		return c.Type() == other.Type() &&
-			bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
-			c.MaxFulfillmentLength() == other.MaxFulfillmentLength() &&
-			c.SubTypes().Equals(other.SubTypes())
-	default:
+	if _, ok := other.(*compoundCondition); !ok {
 		return false
 	}
+
+	return c.Type() == other.Type() &&
+		bytes.Equal(c.Fingerprint(), other.Fingerprint()) &&
+		c.Cost() == other.Cost() &&
+		c.SubTypes().Equals(other.SubTypes())
 }
 
-func (c *compoundCondition) String() string {
-	uri, err := Uri(c)
-	if err != nil {
-		return "!Could not generate Condition's URI!"
-	}
-	return uri
+func (c *compoundCondition) Encode() ([]byte, error) {
+	return encodeCondition(c)
 }
+
+func (c *compoundCondition) URI() string { return generateURI(c) }
+
+func (c *compoundCondition) String() string { return c.URI() }

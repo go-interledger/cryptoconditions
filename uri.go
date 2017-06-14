@@ -2,155 +2,103 @@ package cryptoconditions
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/kalaspuffar/base64url"
 	"github.com/pkg/errors"
-	//TODO revert to upstream once #4 is merged
-	//"github.com/kalaspuffar/base64url"
 )
 
-const (
-	// Minimum URI length for a condition:
-	// 2 prefix + 1 colon + 1 type + 1 colon + 1 features + 1 colon + 0 fingerprint + 1 colon + 1 max ff length
-	//TODO is a 0 fingerprint valid?
-	minUriLengthCondition = 9
+// generateURI generates a URI for the given condition.
+func generateURI(condition Condition) string {
+	params := make(url.Values)
+	params.Set("fpt", strings.ToLower(conditionTypeNames[condition.Type()]))
+	params.Set("cost", fmt.Sprintf("%d", condition.Cost()))
 
-	// Minimum URI length for a fulfillment:
-	// 2 prefix + 1 colon + 1 type + 1 colon + 0 payload
-	minUriLengthFulfillment = 5
-)
+	if compound, ok := condition.(*compoundCondition); ok {
+		subtypeStrings := make([]string, 0, nbKnownConditionTypes)
+		subtypes := compound.SubTypes()
+		for st, stStr := range conditionTypeNames {
+			if subtypes.Has(st) {
+				subtypeStrings = append(subtypeStrings,
+					strings.ToLower(stStr))
+			}
+		}
+		if len(subtypeStrings) != 0 {
+			params.Set("subtypes", strings.Join(subtypeStrings, ","))
+		}
+	}
 
-const (
-	uriPrefixCondition   = "cc"
-	uriPrefixFulfillment = "cf"
-)
+	encodedFingerprint := base64url.Encode(condition.Fingerprint())
+	uri := url.URL{
+		Scheme:   "ni",
+		Path:     "/sha-256;" + encodedFingerprint,
+		RawQuery: params.Encode(),
+	}
 
-// Uri generates a URI for the given object.
-// Only objects of type Condition and Fulfillment are allowed.
-func Uri(obj interface{}) (string, error) {
-	//switch obj.(type) {
-	//case Condition:
-	//	return generateConditionUri(obj.(Condition)), nil
-	//case Fulfillment:
-	//	return generateFulfillmentUri(obj.(Fulfillment))
-	//}
-	return "", errors.New("Unknown object type, cannot generate URI.")
+	return uri.String()
 }
 
-//// conditionUri builds a URI for a Condition.
-//func generateConditionUri(c Condition) string {
-//	return fmt.Sprintf("cc:%x:%x:%s:%v",
-//		c.Type,
-//		base64url.Encode(c.Fingerprint()),
-//		c.MaxFulfillmentLength)
-//}
-//
-//// fulfillmentUri builds a URI for a Fulfillment.
-//func generateFulfillmentUri(ff Fulfillment) (string, error) {
-//	payloadBytes, err := EncodeFulfillment(ff)
-//	if err != nil {
-//		return "", errors.Wrap(err, "Failed to generate fulfillment payload")
-//	}
-//	return fmt.Sprintf("cf:%x:%s",
-//		ff.ConditionType(),
-//		base64url.Encode(payloadBytes)), nil
-//}
-
-// ParseUri parses a URI into an object.
-// Will either return
-// - a Condition  if the prefix is "cc"
-// - a Fulfillment if the prefux is "cf"
-func ParseUri(uri string) (interface{}, error) {
-	parts := strings.Split(uri, ":")
-	if len(parts) < 1 {
-		return nil, errors.New("URI does not have a prefix.")
-	}
-
-	switch parts[0] {
-	case uriPrefixCondition:
-		return ParseConditionUri(uri)
-	case uriPrefixFulfillment:
-		return ParseFulfillmentUri(uri)
-	default:
-		return nil, fmt.Errorf("Unknown URI prefix: %s", parts[0])
-	}
-}
-
-// ParseConditionUri parses a URI into a Condition.
-func ParseConditionUri(uri string) (Condition, error) {
-	if len(uri) < minUriLengthCondition {
-		return nil, errors.New("URI is too short to be valid.")
-	}
-
-	parts := strings.Split(uri, ":")
-	if len(parts) != 5 {
-		return nil, errors.New("A Condition URI must consist of 5 segments.")
-	}
-	if parts[0] != uriPrefixCondition {
-		return nil, fmt.Errorf("Wrong condition URI prefix: %s", parts[0])
-	}
-
-	condition := new(simpleCondition)
-	//var err error
-	//if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-	//	if ct >= uint64(nbKnownConditionTypes) {
-	//		return nil, fmt.Errorf("Unknown condition type %v", ct)
-	//	}
-	//	condition.Type = ConditionType(ct)
-	//} else {
-	//	return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
-	//}
-	//if features, err := strconv.ParseUint(parts[2], 16, 8); err == nil {
-	//	condition.Features = Features(features)
-	//} else {
-	//	return nil, errors.Wrapf(err, "Failed to parse uint8 from hex '%v'", parts[2])
-	//}
-	//if condition.Fingerprint, err = base64url.Decode(parts[3]); err != nil {
-	//	return nil, errors.Wrapf(err, "Failed to decode base64url encoding '%v'", parts[3])
-	//}
-	//if mfl, err := strconv.ParseUint(parts[4], 10, 32); err == nil {
-	//	condition.MaxFulfillmentLength = uint32(mfl)
-	//} else {
-	//	return nil, errors.Wrapf(err, "Failed to parse uint32 from decimal '%v'", parts[4])
-	//}
-
-	return condition, nil
-}
-
-// ParseFulfillmentUri parses a URI into a Fulfillment.
-func ParseFulfillmentUri(uri string) (Fulfillment, error) {
-	if len(uri) < minUriLengthFulfillment {
-		return nil, errors.New("URI is too short to be valid.")
-	}
-
-	parts := strings.Split(uri, ":")
-	if len(parts) != 3 {
-		return nil, errors.New("A Fulfillment URI must consist of 3 segments.")
-	}
-	if parts[0] != uriPrefixFulfillment {
-		return nil, fmt.Errorf("Wrong fulfillment URI prefix: %s", parts[0])
-	}
-
-	var conditionType ConditionType
-	if ct, err := strconv.ParseUint(parts[1], 16, 16); err == nil {
-		conditionType = ConditionType(ct)
-	} else {
-		return nil, errors.Wrapf(err, "Failed to parse uint16 from hex '%v'", parts[1])
-	}
-
-	ff, err := newFulfillmentByType(conditionType)
+// ParseURI parses a URI into a Condition.
+func ParseURI(uri string) (Condition, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create an empty fulfillment of type %v", conditionType)
+		return nil, errors.Wrap(err, "failed to parse URI")
+	}
+	params := u.Query()
+
+	// Find the condition type.
+	conditionTypeString := strings.ToUpper(params.Get("fpt"))
+	conditionType, found := conditionTypeDictionary[conditionTypeString]
+	if !found {
+		return nil, errors.Errorf(
+			"unknown condition type: %s", params.Get("fpt"))
 	}
 
-	//payload, err := base64url.Decode(parts[2])
-	//if err != nil {
-	//	return nil, errors.Wrapf(err, "Failed to decode base64url encoding of '%v'", parts[2])
-	//}
-	//if err := ff.ParsePayload(payload); err != nil {
-	//	return nil, errors.Wrap(err, "Failed to parse fulfillment payload")
-	//}
+	// Parse the fingerprint.
+	pathParts := strings.SplitN(u.Path, ";", 1)
+	if len(pathParts) != 2 {
+		return nil, errors.New("incorrectly formatted URI, no semicolon found")
+	}
+	fingerprint, err := base64url.Decode(pathParts[1])
+	if err != nil {
+		return nil, errors.Wrap(err,
+			"failed to decode base64url encoded fingerprint")
+	}
 
-	return ff, nil
+	// Parse cost.
+	parsedInt, err := strconv.ParseInt(params.Get("cost"), 10, 64)
+	if err != nil {
+		return nil, errors.Wrapf(err,
+			"failed to parse cost value %s", params.Get("cost"))
+	}
+	cost := int(parsedInt)
+
+	switch conditionTypeMap[conditionType] {
+
+	case simpleConditionType:
+		return NewSimpleCondition(conditionType, fingerprint, cost), nil
+
+	case compoundConditionType:
+		// Parse subtypes.
+		var subtypeSet ConditionTypeSet
+		subtypeStrings := strings.Split(params.Get("subtypes"), ",")
+		for _, subtypeString := range subtypeStrings {
+			subType, found := conditionTypeDictionary[strings.ToLower(subtypeString)]
+			if !found {
+				return nil, errors.Errorf(
+					"unknown condition type in subconditions: %s",
+					subtypeString)
+			}
+			subtypeSet.Add(subType)
+		}
+		return NewCompoundCondition(
+			conditionType, fingerprint, cost, subtypeSet), nil
+
+	default:
+		return nil, errors.Errorf(
+			"unexpected error generating condition of type %s",
+			conditionTypeString)
+	}
 }

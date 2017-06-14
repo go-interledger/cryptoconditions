@@ -1,63 +1,88 @@
 package cryptoconditions
 
 import (
+	"crypto/sha256"
 	"fmt"
 
-	"crypto/sha256"
-
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ed25519"
 )
 
-const ffEd25519Sha256EncodedSize = 102
+// ffEd25519Sha256Cost is the fixed cost value for ED25519-SHA-256 fulfillments.
+const ffEd25519Sha256Cost = 131072
 
 // FfEd25519Sha256 implements the ED25519-SHA-256 fulfillment.
 type FfEd25519Sha256 struct {
-	PublicKey ed25519.PublicKey
-	Signature []byte
+	PublicKey []byte `asn1:"tag:0"`
+	Signature []byte `asn1:"tag:1"`
 }
 
 // NewEd25519Sha256 creates a new ED25519-SHA-256 fulfillment.
-func NewEd25519Sha256(pubkey ed25519.PublicKey, signature []byte) *FfEd25519Sha256 {
+func NewEd25519Sha256(pubkey []byte, signature []byte) (*FfEd25519Sha256, error) {
+	if len(pubkey) != ed25519.PublicKeySize {
+		return nil, errors.Errorf(
+			"wrong pubkey size (%d)", len(pubkey))
+	}
+	if len(signature) != ed25519.SignatureSize {
+		return nil, errors.Errorf(
+			"wrong signature size (%d)", len(signature))
+	}
 	return &FfEd25519Sha256{
 		PublicKey: pubkey,
 		Signature: signature,
-	}
+	}, nil
 }
 
-func (ff *FfEd25519Sha256) ConditionType() ConditionType {
+func (f *FfEd25519Sha256) Ed25519PublicKey() ed25519.PublicKey {
+	return ed25519.PublicKey(f.PublicKey)
+}
+
+func (f *FfEd25519Sha256) ConditionType() ConditionType {
 	return CTEd25519Sha256
 }
 
-func (ff *FfEd25519Sha256) Condition() Condition {
-	return NewSimpleCondition(ff.ConditionType(), ff.fingerprint(), ff.maxFulfillmentLength())
+func (f *FfEd25519Sha256) fingerprintContents() []byte {
+	content := struct {
+		PubKey []byte
+	}{
+		PubKey: f.PublicKey,
+	}
+
+	encoded, err := ASN1Context.Encode(content)
+	if err != nil {
+		//TODO
+		panic(err)
+	}
+
+	return encoded
 }
 
-func (ff *FfEd25519Sha256) fingerprint() []byte {
-	hash := sha256.Sum256(ff.PublicKey)
+func (f *FfEd25519Sha256) fingerprint() []byte {
+	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (ff *FfEd25519Sha256) maxFulfillmentLength() int {
-	return ffEd25519Sha256EncodedSize
+func (f *FfEd25519Sha256) cost() int {
+	return ffEd25519Sha256Cost
 }
 
-func (ff *FfEd25519Sha256) Validate(condition Condition, message []byte) error {
-	if !matches(ff, condition) {
+func (f *FfEd25519Sha256) Condition() Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+}
+
+func (f *FfEd25519Sha256) Encode() ([]byte, error) {
+	return encodeFulfillment(f)
+}
+
+func (f *FfEd25519Sha256) Validate(condition Condition, message []byte) error {
+	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}
 
-	if ed25519.Verify(ff.PublicKey, message, ff.Signature) {
+	if ed25519.Verify(f.Ed25519PublicKey(), message, f.Signature) {
 		return nil
 	} else {
 		return fmt.Errorf(
 			"Unable to Validate Ed25519Sha256 fulfillment: signature verification failed for message %x", message)
 	}
-}
-
-func (ff *FfEd25519Sha256) String() string {
-	uri, err := Uri(ff)
-	if err != nil {
-		return "!Could not generate Fulfillment's URI!"
-	}
-	return uri
 }
