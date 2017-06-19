@@ -42,18 +42,18 @@ func NewRsaSha256(modulus []byte, signature []byte) (*FfRsaSha256, error) {
 	}, nil
 }
 
-func (f *FfRsaSha256) PublicKey() *rsa.PublicKey {
+func (f FfRsaSha256) PublicKey() *rsa.PublicKey {
 	return &rsa.PublicKey{
 		N: new(big.Int).SetBytes(f.Modulus),
 		E: ffRsaSha256PublicExponent,
 	}
 }
 
-func (f *FfRsaSha256) ConditionType() ConditionType {
+func (f FfRsaSha256) ConditionType() ConditionType {
 	return CTRsaSha256
 }
 
-func (f *FfRsaSha256) fingerprintContents() []byte {
+func (f FfRsaSha256) fingerprintContents() []byte {
 	content := struct {
 		Modulus []byte `asn1:"tag:0"`
 	}{
@@ -69,24 +69,24 @@ func (f *FfRsaSha256) fingerprintContents() []byte {
 	return encoded
 }
 
-func (f *FfRsaSha256) fingerprint() []byte {
+func (f FfRsaSha256) fingerprint() []byte {
 	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (f *FfRsaSha256) cost() int {
-	return len(f.Modulus) ^ 2
+func (f FfRsaSha256) cost() int {
+	return len(f.Modulus) * len(f.Modulus)
 }
 
-func (f *FfRsaSha256) Condition() Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+func (f FfRsaSha256) Condition() Condition {
+	return newConditionFromFulfillment(f)
 }
 
-func (f *FfRsaSha256) Encode() ([]byte, error) {
+func (f FfRsaSha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f *FfRsaSha256) Validate(condition Condition, message []byte) error {
+func (f FfRsaSha256) Validate(condition Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

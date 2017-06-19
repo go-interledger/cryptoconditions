@@ -33,17 +33,17 @@ func NewEd25519Sha256(pubkey []byte, signature []byte) (*FfEd25519Sha256, error)
 	}, nil
 }
 
-func (f *FfEd25519Sha256) Ed25519PublicKey() ed25519.PublicKey {
+func (f FfEd25519Sha256) Ed25519PublicKey() ed25519.PublicKey {
 	return ed25519.PublicKey(f.PublicKey)
 }
 
-func (f *FfEd25519Sha256) ConditionType() ConditionType {
+func (f FfEd25519Sha256) ConditionType() ConditionType {
 	return CTEd25519Sha256
 }
 
-func (f *FfEd25519Sha256) fingerprintContents() []byte {
+func (f FfEd25519Sha256) fingerprintContents() []byte {
 	content := struct {
-		PubKey []byte
+		PubKey []byte `asn1:"tag:0"`
 	}{
 		PubKey: f.PublicKey,
 	}
@@ -57,24 +57,24 @@ func (f *FfEd25519Sha256) fingerprintContents() []byte {
 	return encoded
 }
 
-func (f *FfEd25519Sha256) fingerprint() []byte {
+func (f FfEd25519Sha256) fingerprint() []byte {
 	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (f *FfEd25519Sha256) cost() int {
+func (f FfEd25519Sha256) cost() int {
 	return ffEd25519Sha256Cost
 }
 
-func (f *FfEd25519Sha256) Condition() Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+func (f FfEd25519Sha256) Condition() Condition {
+	return newConditionFromFulfillment(f)
 }
 
-func (f *FfEd25519Sha256) Encode() ([]byte, error) {
+func (f FfEd25519Sha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f *FfEd25519Sha256) Validate(condition Condition, message []byte) error {
+func (f FfEd25519Sha256) Validate(condition Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

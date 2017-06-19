@@ -4,9 +4,66 @@ import (
 	"crypto/sha256"
 	"testing"
 
+	"fmt"
+	"strings"
+
+	"github.com/stevenroose/asn1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func printBitsSet(set ConditionTypeSet) {
+	bs := asn1.BitString(set)
+	bits := make([]string, 0)
+	for i := 0; i < 30; i++ {
+		if bs.At(i) == 1 {
+			bits = append(bits, fmt.Sprintf("%d", i))
+		}
+	}
+	fmt.Println("Bits set:", strings.Join(bits, ", "))
+}
+
+func TestConditionTypeSet_add(t *testing.T) {
+	var set ConditionTypeSet
+
+	assert.False(t, set.Has(CTPreimageSha256))
+	assert.False(t, set.Has(CTEd25519Sha256))
+	assert.Empty(t, set.AllTypes())
+	asn1set := asn1.BitString(set)
+	assert.Equal(t, 0, asn1set.At(int(CTPreimageSha256)))
+	assert.Equal(t, 0, asn1set.At(int(CTPrefixSha256)))
+
+	set2 := set
+	set2.add(CTPreimageSha256)
+	// test set has not chanced
+	assert.False(t, set.Has(CTPreimageSha256))
+	assert.False(t, set.Has(CTEd25519Sha256))
+	assert.Empty(t, set.AllTypes())
+	asn1set = asn1.BitString(set)
+	assert.Equal(t, 0, asn1set.At(int(CTPreimageSha256)))
+	assert.Equal(t, 0, asn1set.At(int(CTPrefixSha256)))
+	// test set2
+	asn1set2 := asn1.BitString(set2)
+	assert.Equal(t, 1, asn1set2.At(int(CTPreimageSha256)))
+	assert.Equal(t, 0, asn1set2.At(int(CTPrefixSha256)))
+	assert.True(t, set2.Has(CTPreimageSha256))
+	assert.False(t, set2.Has(CTEd25519Sha256))
+	assert.Equal(t, 1, len(set2.AllTypes()))
+}
+
+func TestConditionTypeSet_merge(t *testing.T) {
+	var set1, set2 ConditionTypeSet
+
+	set1.add(ConditionType(4))
+	set2.add(ConditionType(34))
+
+	set1.merge(set2)
+
+	assert.True(t, set1.Has(ConditionType(4)))
+	assert.True(t, set1.Has(ConditionType(34)))
+	assert.Equal(t, 1, asn1.BitString(set1).At(4))
+	assert.Equal(t, 1, asn1.BitString(set1).At(34))
+}
 
 func TestDecodeCondition_Preimage(t *testing.T) {
 	encoding := unhex("A0258020E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855810100")

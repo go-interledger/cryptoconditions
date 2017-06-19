@@ -196,7 +196,7 @@ func testRfcVectorValidStandard(t *testing.T, vector rfcVector, ff Fulfillment) 
 
 	// Test condition URI.
 	conditionUri := condition.URI()
-	assertEquivalentURIs(t, conditionUri, vector.ConditionUri)
+	assertEquivalentURIs(t, vector.ConditionUri, conditionUri)
 
 	// Test subtypes.
 	//TODO Test subtypes
@@ -221,7 +221,7 @@ func testRfcVectorValidPrefixSha256(t *testing.T, vector rfcVector, rff Fulfillm
 	require.True(t, ok)
 
 	// Check if the prefix is correct.
-	prefix := unhex(vector.JSON["prefix"].(string))
+	prefix := unbase64(vector.JSON["prefix"].(string))
 	assert.Equal(t, prefix, ff.Prefix)
 }
 
@@ -252,12 +252,34 @@ func testRfcVectorValidThresholdSha256(t *testing.T, vector rfcVector, rff Fulfi
 	}
 }
 
+func testRfcVectorValidEd25519Sha256(t *testing.T, vector rfcVector, rff Fulfillment) {
+	ff, ok := rff.(*FfEd25519Sha256)
+	require.True(t, ok)
+	vff, ok := vector.fulfillment.(*FfEd25519Sha256)
+	require.True(t, ok)
+
+	assert.Equal(t, vff.PublicKey, ff.PublicKey)
+	assert.Equal(t, vff.Signature, ff.Signature)
+}
+
+func testRfcVectorValidRsaSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
+	ff, ok := rff.(*FfRsaSha256)
+	require.True(t, ok)
+	vff, ok := vector.fulfillment.(*FfRsaSha256)
+	require.True(t, ok)
+
+	assert.Equal(t, vff.Modulus, ff.Modulus)
+	assert.Equal(t, vff.Signature, ff.Signature)
+}
+
 // testRfcVectorValidFulfillmentTesters maps condition types to the method that
 // performs tests specific to fulfillments of that condition type.
 var testRfcVectorValidFulfillmentTesters = map[ConditionType]func(t *testing.T, vector rfcVector, ff Fulfillment){
 	CTPreimageSha256:  testRfcVectorValidPreimageSha256,
 	CTPrefixSha256:    testRfcVectorValidPrefixSha256,
 	CTThresholdSha256: testRfcVectorValidThresholdSha256,
+	CTEd25519Sha256:   testRfcVectorValidEd25519Sha256,
+	CTRsaSha256:       testRfcVectorValidRsaSha256,
 }
 
 func TestRfcVectors(t *testing.T) {
@@ -285,6 +307,7 @@ func TestRfcVectors(t *testing.T) {
 			// Run the type-specific tests.
 			typeSpecificTester := testRfcVectorValidFulfillmentTesters[vector.fulfillment.ConditionType()]
 			if typeSpecificTester == nil {
+				t.Log("Failing because no type-specific tester function")
 				t.FailNow()
 			}
 			typeSpecificTester(t, vector, ff)

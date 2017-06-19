@@ -14,32 +14,32 @@ func NewPreimageSha256(preimage []byte) *FfPreimageSha256 {
 	}
 }
 
-func (f *FfPreimageSha256) ConditionType() ConditionType {
+func (f FfPreimageSha256) ConditionType() ConditionType {
 	return CTPreimageSha256
 }
 
-func (f *FfPreimageSha256) fingerprintContents() []byte {
+func (f FfPreimageSha256) fingerprintContents() []byte {
 	return f.Preimage
 }
 
-func (f *FfPreimageSha256) fingerprint() []byte {
+func (f FfPreimageSha256) fingerprint() []byte {
 	hash := sha256.Sum256(f.fingerprintContents())
 	return hash[:]
 }
 
-func (f *FfPreimageSha256) cost() int {
+func (f FfPreimageSha256) cost() int {
 	return len(f.Preimage)
 }
 
-func (f *FfPreimageSha256) Condition() Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+func (f FfPreimageSha256) Condition() Condition {
+	return newConditionFromFulfillment(f)
 }
 
-func (f *FfPreimageSha256) Encode() ([]byte, error) {
+func (f FfPreimageSha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f *FfPreimageSha256) Validate(condition Condition, message []byte) error {
+func (f FfPreimageSha256) Validate(condition Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

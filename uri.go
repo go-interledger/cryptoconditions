@@ -13,20 +13,16 @@ import (
 // generateURI generates a URI for the given condition.
 func generateURI(condition Condition) string {
 	params := make(url.Values)
-	params.Set("fpt", strings.ToLower(conditionTypeNames[condition.Type()]))
 	params.Set("cost", fmt.Sprintf("%d", condition.Cost()))
+	params.Set("fpt", strings.ToLower(condition.Type().String()))
 
-	if compound, ok := condition.(*compoundCondition); ok {
-		subtypeStrings := make([]string, 0, nbKnownConditionTypes)
-		subtypes := compound.SubTypes()
-		for st, stStr := range conditionTypeNames {
-			if subtypes.Has(st) {
-				subtypeStrings = append(subtypeStrings,
-					strings.ToLower(stStr))
-			}
+	if condition.Type().IsCompound() {
+		subtypesString := ""
+		for _, st := range condition.SubTypes().AllTypes() {
+			subtypesString += strings.ToLower(st.String()) + ","
 		}
-		if len(subtypeStrings) != 0 {
-			params.Set("subtypes", strings.Join(subtypeStrings, ","))
+		if subtypesString != "" {
+			params.Set("subtypes", strings.TrimSuffix(subtypesString, ","))
 		}
 	}
 
@@ -75,30 +71,23 @@ func ParseURI(uri string) (Condition, error) {
 	}
 	cost := int(parsedInt)
 
-	switch conditionTypeMap[conditionType] {
-
-	case simpleConditionType:
-		return NewSimpleCondition(conditionType, fingerprint, cost), nil
-
-	case compoundConditionType:
-		// Parse subtypes.
-		var subtypeSet ConditionTypeSet
-		subtypeStrings := strings.Split(params.Get("subtypes"), ",")
-		for _, subtypeString := range subtypeStrings {
-			subType, found := conditionTypeDictionary[strings.ToLower(subtypeString)]
-			if !found {
-				return nil, errors.Errorf(
-					"unknown condition type in subconditions: %s",
-					subtypeString)
-			}
-			subtypeSet.Add(subType)
+	// Parse subtypes.
+	var subtypeSet *ConditionTypeSet
+	subtypeStrings := strings.Split(params.Get("subtypes"), ",")
+	for _, subtypeString := range subtypeStrings {
+		subType, found := conditionTypeDictionary[strings.ToLower(subtypeString)]
+		if !found {
+			return nil, errors.Errorf(
+				"unknown condition type in subconditions: %s",
+				subtypeString)
 		}
-		return NewCompoundCondition(
-			conditionType, fingerprint, cost, subtypeSet), nil
-
-	default:
-		return nil, errors.Errorf(
-			"unexpected error generating condition of type %s",
-			conditionTypeString)
+		subtypeSet.add(subType)
 	}
+
+	return &Cond{
+		conditionType: conditionType,
+		fingerprint:   fingerprint,
+		cost:          cost,
+		subTypes:      *subtypeSet,
+	}, nil
 }

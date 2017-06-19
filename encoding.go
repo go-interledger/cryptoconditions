@@ -20,14 +20,80 @@ import (
 // fulfillments (`fulfillment`) and conditions (`condition`).
 var ASN1Context *asn1.Context
 
+type encodedEd25519Sha256 struct {
+	Fingerprint []byte `asn1:"tag:0"`
+	Cost        int    `asn1:"tag:1"`
+}
+
+type encodedPrefixSha256 struct {
+	Fingerprint []byte         `asn1:"tag:0"`
+	Cost        int            `asn1:"tag:1"`
+	SubTypes    asn1.BitString `asn1:"tag:2"`
+}
+
+type encodedPreimageSha256 struct {
+	Fingerprint []byte `asn1:"tag:0"`
+	Cost        int    `asn1:"tag:1"`
+}
+
+type encodedRsaSha256 struct {
+	Fingerprint []byte `asn1:"tag:0"`
+	Cost        int    `asn1:"tag:1"`
+}
+
+type encodedThresholdSha256 struct {
+	Fingerprint []byte         `asn1:"tag:0"`
+	Cost        int            `asn1:"tag:1"`
+	SubTypes    asn1.BitString `asn1:"tag:2"`
+}
+
+func encodedCondition(condition Condition) interface{} {
+	switch condition.Type() {
+	case CTEd25519Sha256:
+		return encodedEd25519Sha256{
+			Fingerprint: condition.Fingerprint(),
+			Cost:        condition.Cost(),
+		}
+
+	case CTPrefixSha256:
+		return encodedPrefixSha256{
+			Fingerprint: condition.Fingerprint(),
+			Cost:        condition.Cost(),
+			SubTypes:    asn1.BitString(condition.SubTypes()),
+		}
+
+	case CTPreimageSha256:
+		return encodedPreimageSha256{
+			Fingerprint: condition.Fingerprint(),
+			Cost:        condition.Cost(),
+		}
+
+	case CTRsaSha256:
+		return encodedRsaSha256{
+			Fingerprint: condition.Fingerprint(),
+			Cost:        condition.Cost(),
+		}
+
+	case CTThresholdSha256:
+		return encodedThresholdSha256{
+			Fingerprint: condition.Fingerprint(),
+			Cost:        condition.Cost(),
+			SubTypes:    asn1.BitString(condition.SubTypes()),
+		}
+	}
+	return nil
+}
+
 // encodeCondition encodes the given condition to it's DER encoding.
 func encodeCondition(condition Condition) ([]byte, error) {
+	var encoded = encodedCondition(condition)
+
 	//TODO determine when an error is possible
-	encoded, err := ASN1Context.EncodeWithOptions(condition, "choice:condition")
+	encoding, err := ASN1Context.EncodeWithOptions(encoded, "choice:condition")
 	if err != nil {
 		return nil, errors.Wrap(err, "ASN.1 encoding failed")
 	}
-	return encoded, nil
+	return encoding, nil
 }
 
 // DecodeCondition decodes the DER encoding of a condition.
@@ -43,17 +109,29 @@ func DecodeCondition(encodedCondition []byte) (Condition, error) {
 			"Encoding was not minimal. Excess bytes: %x", rest)
 	}
 
-	// Do some reflection magic to derive a pointer to the struct in obj.
-	ptr := reflect.Indirect(reflect.New(reflect.TypeOf(obj)))
-	ptr.Set(reflect.ValueOf(obj))
-	obj = ptr.Addr().Interface()
+	var cond Condition
+	switch obj.(type) {
+	case encodedEd25519Sha256:
+		c := obj.(encodedEd25519Sha256)
+		cond = NewSimpleCondition(CTEd25519Sha256, c.Fingerprint, c.Cost)
+	case encodedPrefixSha256:
+		c := obj.(encodedPrefixSha256)
+		cond = NewCompoundCondition(CTPrefixSha256, c.Fingerprint, c.Cost, ConditionTypeSet(c.SubTypes))
+	case encodedPreimageSha256:
+		c := obj.(encodedPreimageSha256)
+		cond = NewSimpleCondition(CTPreimageSha256, c.Fingerprint, c.Cost)
+	case encodedRsaSha256:
+		c := obj.(encodedRsaSha256)
+		cond = NewSimpleCondition(CTRsaSha256, c.Fingerprint, c.Cost)
+	case encodedThresholdSha256:
+		c := obj.(encodedThresholdSha256)
+		cond = NewCompoundCondition(CTThresholdSha256, c.Fingerprint, c.Cost, ConditionTypeSet(c.SubTypes))
 
-	// Check whether the object we got is in fact a Condition.
-	condition, ok := obj.(Condition)
-	if !ok {
-		return nil, errors.New("Encoded object was not a condition")
+	default:
+		return nil, errors.New("encoding was not a condition")
 	}
-	return condition, nil
+
+	return cond, nil
 }
 
 // encodeFulfillment encodes the given fulfillment to it's DER encoding.
@@ -101,10 +179,27 @@ func buildASN1Context() *asn1.Context {
 	ctx.SetDer(true, true)
 
 	// Define the Condition CHOICE element.
-	conditionChoices := make([]asn1.Choice, nbKnownConditionTypes)
-	for ct, condType := range conditionTypeMap {
-		tag := fmt.Sprintf("tag:%d", ct)
-		conditionChoices[ct] = asn1.Choice{Options: tag, Type: condType}
+	conditionChoices := []asn1.Choice{
+		{
+			Options: fmt.Sprintf("tag:%d", CTEd25519Sha256),
+			Type:    reflect.TypeOf(encodedEd25519Sha256{}),
+		},
+		{
+			Options: fmt.Sprintf("tag:%d", CTPrefixSha256),
+			Type:    reflect.TypeOf(encodedPrefixSha256{}),
+		},
+		{
+			Options: fmt.Sprintf("tag:%d", CTPreimageSha256),
+			Type:    reflect.TypeOf(encodedPreimageSha256{}),
+		},
+		{
+			Options: fmt.Sprintf("tag:%d", CTRsaSha256),
+			Type:    reflect.TypeOf(encodedRsaSha256{}),
+		},
+		{
+			Options: fmt.Sprintf("tag:%d", CTThresholdSha256),
+			Type:    reflect.TypeOf(encodedThresholdSha256{}),
+		},
 	}
 	if err := ctx.AddChoice("condition", conditionChoices); err != nil {
 		panic(err)
