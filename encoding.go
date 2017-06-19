@@ -47,7 +47,7 @@ type encodedThresholdSha256 struct {
 	SubTypes    asn1.BitString `asn1:"tag:2"`
 }
 
-func encodedCondition(condition Condition) interface{} {
+func encodedCondition(condition *Condition) interface{} {
 	switch condition.Type() {
 	case CTEd25519Sha256:
 		return encodedEd25519Sha256{
@@ -85,7 +85,7 @@ func encodedCondition(condition Condition) interface{} {
 }
 
 // encodeCondition encodes the given condition to it's DER encoding.
-func encodeCondition(condition Condition) ([]byte, error) {
+func encodeCondition(condition *Condition) ([]byte, error) {
 	var encoded = encodedCondition(condition)
 
 	//TODO determine when an error is possible
@@ -97,7 +97,7 @@ func encodeCondition(condition Condition) ([]byte, error) {
 }
 
 // DecodeCondition decodes the DER encoding of a condition.
-func DecodeCondition(encodedCondition []byte) (Condition, error) {
+func DecodeCondition(encodedCondition []byte) (*Condition, error) {
 	var obj interface{}
 	rest, err := ASN1Context.DecodeWithOptions(
 		encodedCondition, &obj, "choice:condition")
@@ -109,7 +109,7 @@ func DecodeCondition(encodedCondition []byte) (Condition, error) {
 			"Encoding was not minimal. Excess bytes: %x", rest)
 	}
 
-	var cond Condition
+	var cond *Condition
 	switch obj.(type) {
 	case encodedEd25519Sha256:
 		c := obj.(encodedEd25519Sha256)

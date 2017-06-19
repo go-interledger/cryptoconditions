@@ -12,7 +12,7 @@ type Fulfillment interface {
 	ConditionType() ConditionType
 
 	// Condition generates the condition that this fulfillment fulfills.
-	Condition() Condition
+	Condition() *Condition
 	//TODO consider moving Condition away from here because the next two can make up for it
 
 	// Encode encodes the fulfillment into binary format.
@@ -21,14 +21,14 @@ type Fulfillment interface {
 	// Validate checks whether this fulfillment correctly validates the given
 	// condition using the specified message.
 	// It returns nil if it does, an error indicating the problem otherwise.
-	Validate(Condition, []byte) error
+	Validate(*Condition, []byte) error
 
 	// fingerprint calculates the fingerprint of the condition this fulfillment
 	// fulfills.
 	fingerprint() []byte
 
 	// cost calculates the cost metric of this fulfillment.
-	cost() int
+	cost() int //TODO consider making this one public
 }
 
 // compoundConditionFulfillment is an interface that fulfillments for compound

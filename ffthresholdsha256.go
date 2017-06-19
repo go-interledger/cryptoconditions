@@ -6,21 +6,19 @@ import (
 	"sort"
 )
 
-//TODO do we really need to incorporate for unfulfilled ones? it makes this file so much more complicated
-
 // FfThresholdSha256 implements the THRESHOLD-SHA-256 fulfillment.
 type FfThresholdSha256 struct {
-	Threshold uint16 `asn1:"tag:0"`
+	Threshold uint16 `asn1:"-"`
 
-	SubFulfillments []Fulfillment `asn1:"tag:1,explicit,set,choice:fulfillment"`
-	SubConditions   []Condition   `asn1:"tag:2,explicit,set,choice:condition"`
+	SubFulfillments []Fulfillment `asn1:"tag:0,explicit,set,choice:fulfillment"`
+	SubConditions   []*Condition  `asn1:"tag:1,explicit,set,choice:condition"`
 }
 
 //TODO ADD NORMALIZE METHOD that makes sure the FF is of minimal size by replacing (threshold - nbFulfillments) fulfillments
 // with their conditions, choosing those fulfillments that have the biggest (fulfillmentSize - conditionSize).
 
 // NewThresholdSha256 creates a new THRESHOLD-SHA-256 fulfillment.
-func NewThresholdSha256(threshold uint16, subFulfillments []Fulfillment, subConditions []Condition) *FfThresholdSha256 {
+func NewThresholdSha256(threshold uint16, subFulfillments []Fulfillment, subConditions []*Condition) *FfThresholdSha256 {
 	return &FfThresholdSha256{
 		Threshold:       threshold,
 		SubFulfillments: subFulfillments,
@@ -33,13 +31,13 @@ func (f FfThresholdSha256) ConditionType() ConditionType {
 }
 
 func (f FfThresholdSha256) fingerprintContents() []byte {
-	subConditions := make([]Condition, len(f.SubFulfillments))
+	subConditions := make([]*Condition, len(f.SubFulfillments))
 	for i, sff := range f.SubFulfillments {
 		subConditions[i] = sff.Condition()
 	}
 	content := struct {
-		Threshold     uint16      `asn1:"tag:0"`
-		SubConditions []Condition `asn1:"tag:0,explicit,set,choice:condition"`
+		Threshold     uint16       `asn1:"tag:0"`
+		SubConditions []*Condition `asn1:"tag:1,explicit,set,choice:condition"`
 	}{
 		Threshold:     f.Threshold,
 		SubConditions: subConditions,
@@ -83,7 +81,7 @@ func (f FfThresholdSha256) cost() int {
 	return sum + 1024*len(conditionCosts)
 }
 
-func (f FfThresholdSha256) subConditionTypeSet() ConditionTypeSet {
+func (f FfThresholdSha256) subConditionsTypeSet() ConditionTypeSet {
 	var set ConditionTypeSet
 	for _, sff := range f.SubFulfillments {
 		set.addRelevant(sff)
@@ -91,18 +89,22 @@ func (f FfThresholdSha256) subConditionTypeSet() ConditionTypeSet {
 	for _, sc := range f.SubConditions {
 		set.addRelevant(sc)
 	}
+	// As per RFC:
+	// This is the set of types and subtypes of all sub-crypto-conditions,
+	// recursively excluding the type of the root crypto-condition.
+	set.remove(f.ConditionType())
 	return set
 }
 
-func (f FfThresholdSha256) Condition() Condition {
-	return newConditionFromFulfillment(f)
+func (f FfThresholdSha256) Condition() *Condition {
+	return NewCompoundCondition(f.ConditionType(), f.fingerprint(), f.cost(), f.subConditionsTypeSet())
 }
 
 func (f FfThresholdSha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f FfThresholdSha256) Validate(condition Condition, message []byte) error {
+func (f FfThresholdSha256) Validate(condition *Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

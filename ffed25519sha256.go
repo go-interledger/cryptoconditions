@@ -66,15 +66,15 @@ func (f FfEd25519Sha256) cost() int {
 	return ffEd25519Sha256Cost
 }
 
-func (f FfEd25519Sha256) Condition() Condition {
-	return newConditionFromFulfillment(f)
+func (f FfEd25519Sha256) Condition() *Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
 }
 
 func (f FfEd25519Sha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f FfEd25519Sha256) Validate(condition Condition, message []byte) error {
+func (f FfEd25519Sha256) Validate(condition *Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

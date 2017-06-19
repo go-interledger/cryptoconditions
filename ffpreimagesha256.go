@@ -31,15 +31,15 @@ func (f FfPreimageSha256) cost() int {
 	return len(f.Preimage)
 }
 
-func (f FfPreimageSha256) Condition() Condition {
-	return newConditionFromFulfillment(f)
+func (f FfPreimageSha256) Condition() *Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
 }
 
 func (f FfPreimageSha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f FfPreimageSha256) Validate(condition Condition, message []byte) error {
+func (f FfPreimageSha256) Validate(condition *Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}

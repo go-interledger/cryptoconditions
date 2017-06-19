@@ -11,7 +11,7 @@ import (
 )
 
 // generateURI generates a URI for the given condition.
-func generateURI(condition Condition) string {
+func generateURI(condition *Condition) string {
 	params := make(url.Values)
 	params.Set("cost", fmt.Sprintf("%d", condition.Cost()))
 	params.Set("fpt", strings.ToLower(condition.Type().String()))
@@ -37,7 +37,7 @@ func generateURI(condition Condition) string {
 }
 
 // ParseURI parses a URI into a Condition.
-func ParseURI(uri string) (Condition, error) {
+func ParseURI(uri string) (*Condition, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse URI")
@@ -84,7 +84,7 @@ func ParseURI(uri string) (Condition, error) {
 		subtypeSet.add(subType)
 	}
 
-	return &Cond{
+	return &Condition{
 		conditionType: conditionType,
 		fingerprint:   fingerprint,
 		cost:          cost,

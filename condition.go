@@ -86,20 +86,11 @@ func (c ConditionTypeSet) Has(conditionType ConditionType) bool {
 
 func (c ConditionTypeSet) AllTypes() []ConditionType {
 	all := make([]ConditionType, 0, nbKnownConditionTypes)
-	if c.Has(CTEd25519Sha256) {
-		all = append(all, CTEd25519Sha256)
-	}
-	if c.Has(CTPrefixSha256) {
-		all = append(all, CTPrefixSha256)
-	}
-	if c.Has(CTPreimageSha256) {
-		all = append(all, CTPreimageSha256)
-	}
-	if c.Has(CTRsaSha256) {
-		all = append(all, CTRsaSha256)
-	}
-	if c.Has(CTThresholdSha256) {
-		all = append(all, CTThresholdSha256)
+	for i := 0; i < c.BitLength; i++ {
+		ct := ConditionType(i)
+		if c.Has(ct) {
+			all = append(all, ct)
+		}
 	}
 	return all
 }
@@ -129,8 +120,26 @@ func (c *ConditionTypeSet) add(conditionType ConditionType) {
 	c.Bytes[byteNumber] |= 1 << (7 - m)
 }
 
-// AddAll adds all the condition types from other to this set.
-func (c *ConditionTypeSet) merge(other ConditionTypeSet) {
+// Add adds the given condition type to the set.
+func (c *ConditionTypeSet) remove(conditionType ConditionType) {
+	// Set the bit to 0.
+	bit := uint(conditionType)
+	byteNumber := bit / 8
+	m := bit % 8
+	c.Bytes[byteNumber] &= ^(1 << (7 - m))
+
+	// Shrink the bitstring if necessary.
+	for c.Has(ConditionType(c.BitLength-1)) == false {
+		c.BitLength--
+		if c.BitLength%8 == 0 {
+			// Remove empty byte.
+			c.Bytes = c.Bytes[:len(c.Bytes)-1]
+		}
+	}
+}
+
+// addAll adds all the condition types from other to this set.
+func (c *ConditionTypeSet) addAll(other ConditionTypeSet) {
 	// New bit length is the higher one of both.
 	c.BitLength = max(c.BitLength, other.BitLength)
 
@@ -154,35 +163,17 @@ func (c *ConditionTypeSet) addRelevant(element interface{}) {
 		ff := element.(Fulfillment)
 		c.add(ff.ConditionType())
 		if compound, ok := element.(compoundConditionFulfillment); ok {
-			c.merge(compound.subConditionsTypeSet())
+			c.addAll(compound.subConditionsTypeSet())
 		}
 	case Condition:
 		cond := element.(Condition)
 		c.add(cond.Type())
-		c.merge(cond.SubTypes())
+		c.addAll(cond.SubTypes())
 	}
 }
 
-// Condition defines the condition interface.
-type Condition interface {
-	// Type returns the type of this condition.
-	Type() ConditionType
-	// Fingerprint returns the fingerprint of this condition.
-	Fingerprint() []byte
-	// Cost returns the cost metric of a fulfillment for this condition.
-	Cost() int
-	// SubTypes returns the condition types of the
-	// sub-conditions of this condition.
-	SubTypes() ConditionTypeSet
-	// Equals checks if this condition equals the other.
-	Equals(Condition) bool
-	// URI returns the URI for this condition.
-	URI() string
-	// Encode encodes the condition in binary format.
-	Encode() ([]byte, error)
-}
-
-type Cond struct {
+// Condition represents a crypto-condition.
+type Condition struct {
 	conditionType ConditionType
 
 	fingerprint []byte
@@ -191,8 +182,9 @@ type Cond struct {
 	subTypes ConditionTypeSet
 }
 
-func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, cost int) Condition {
-	return &Cond{
+// NewSimpleCondition constructs a new simple condition.
+func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, cost int) *Condition {
+	return &Condition{
 		conditionType: conditionType,
 		fingerprint:   fingerprint,
 		cost:          cost,
@@ -200,8 +192,9 @@ func NewSimpleCondition(conditionType ConditionType, fingerprint []byte, cost in
 	}
 }
 
-func NewCompoundCondition(conditionType ConditionType, fingerprint []byte, cost int, subTypes ConditionTypeSet) Condition {
-	return &Cond{
+// NewCompoundCondition constructs a new compound condition with subtypes.
+func NewCompoundCondition(conditionType ConditionType, fingerprint []byte, cost int, subTypes ConditionTypeSet) *Condition {
+	return &Condition{
 		conditionType: conditionType,
 		fingerprint:   fingerprint,
 		cost:          cost,
@@ -209,8 +202,10 @@ func NewCompoundCondition(conditionType ConditionType, fingerprint []byte, cost 
 	}
 }
 
-func newConditionFromFulfillment(ff Fulfillment) Condition {
-	c := &Cond{
+// newConditionFromFulfillment constructs a condition from a fulfillment.
+//TODO remove and put inline
+func newConditionFromFulfillment(ff Fulfillment) *Condition {
+	c := &Condition{
 		conditionType: ff.ConditionType(),
 		fingerprint:   ff.fingerprint(),
 		cost:          ff.cost(),
@@ -224,28 +219,28 @@ func newConditionFromFulfillment(ff Fulfillment) Condition {
 }
 
 // Type returns the type of this condition.
-func (c *Cond) Type() ConditionType {
+func (c Condition) Type() ConditionType {
 	return c.conditionType
 }
 
 // Fingerprint returns the fingerprint of this condition.
-func (c *Cond) Fingerprint() []byte {
+func (c Condition) Fingerprint() []byte {
 	return c.fingerprint
 }
 
 // Cost returns the cost metric of a fulfillment for this condition.
-func (c *Cond) Cost() int {
+func (c Condition) Cost() int {
 	return c.cost
 }
 
 // SubTypes returns the condition types of the
 // sub-conditions of this condition.
-func (c *Cond) SubTypes() ConditionTypeSet {
+func (c Condition) SubTypes() ConditionTypeSet {
 	return c.subTypes
 }
 
 // Equals checks if this condition equals the other.
-func (c *Cond) Equals(other Condition) bool {
+func (c *Condition) Equals(other *Condition) bool {
 	return c.Type() == other.Type() &&
 		bytes.Equal(c.fingerprint, other.Fingerprint()) &&
 		c.Cost() == other.Cost() &&
@@ -253,11 +248,11 @@ func (c *Cond) Equals(other Condition) bool {
 }
 
 // URI returns the URI for this condition.
-func (c *Cond) URI() string {
+func (c *Condition) URI() string {
 	return generateURI(c)
 }
 
 // Encode encodes the condition in binary format.
-func (c *Cond) Encode() ([]byte, error) {
+func (c *Condition) Encode() ([]byte, error) {
 	return encodeCondition(c)
 }

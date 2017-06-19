@@ -51,18 +51,123 @@ func TestConditionTypeSet_add(t *testing.T) {
 	assert.Equal(t, 1, len(set2.AllTypes()))
 }
 
-func TestConditionTypeSet_merge(t *testing.T) {
-	var set1, set2 ConditionTypeSet
+func TestConditionTypeSet_add_loop(t *testing.T) {
+	for i := 0; i < 65; i++ {
+		set := ConditionTypeSet{}
+		set.add(ConditionType(i))
 
-	set1.add(ConditionType(4))
-	set2.add(ConditionType(34))
+		assert.Equal(t, i+1, set.BitLength)
+		assert.True(t, set.Has(ConditionType(i)))
+		assert.Equal(t, 1, asn1.BitString(set).At(i))
+		assert.Equal(t, 1, len(set.AllTypes()))
+	}
+}
 
-	set1.merge(set2)
+func TestConditionTypeSet_remove(t *testing.T) {
+	var set ConditionTypeSet
 
-	assert.True(t, set1.Has(ConditionType(4)))
-	assert.True(t, set1.Has(ConditionType(34)))
-	assert.Equal(t, 1, asn1.BitString(set1).At(4))
-	assert.Equal(t, 1, asn1.BitString(set1).At(34))
+	set.add(ConditionType(0))
+	set.add(ConditionType(1))
+	set.add(ConditionType(2))
+	set.add(ConditionType(8))
+
+	// verify setup
+	assert.Equal(t, 9, set.BitLength)
+	assert.Equal(t, 2, len(set.Bytes))
+	assert.Equal(t, 4, len(set.AllTypes()))
+	assert.True(t, set.Has(ConditionType(0)))
+	assert.True(t, set.Has(ConditionType(1)))
+	assert.True(t, set.Has(ConditionType(2)))
+	assert.True(t, set.Has(ConditionType(8)))
+
+	// remove bit that is already 0
+	set.remove(ConditionType(3))
+	assert.Equal(t, 9, set.BitLength)
+	assert.Equal(t, 2, len(set.Bytes))
+	assert.Equal(t, 4, len(set.AllTypes()))
+
+	// remove bit 2
+	set.remove(ConditionType(2))
+	assert.False(t, set.Has(ConditionType(2)))
+	assert.Equal(t, 9, set.BitLength)
+	assert.Equal(t, 2, len(set.Bytes))
+	assert.Equal(t, 3, len(set.AllTypes()))
+
+	// remove bit 8
+	set.remove(ConditionType(8))
+	assert.False(t, set.Has(ConditionType(8)))
+	// only 0 and 1 are still in it
+	assert.Equal(t, 2, set.BitLength)
+	assert.Equal(t, 1, len(set.Bytes))
+	assert.Equal(t, 2, len(set.AllTypes()))
+}
+
+func TestConditionTypeSet_addAll(t *testing.T) {
+	{
+		var set1, set2 ConditionTypeSet
+
+		set1.add(ConditionType(4))
+		set2.add(ConditionType(15))
+		set2.add(ConditionType(34))
+
+		set1.addAll(set2)
+
+		assert.True(t, set1.Has(ConditionType(4)))
+		assert.True(t, set1.Has(ConditionType(15)))
+		assert.True(t, set1.Has(ConditionType(34)))
+		assert.Equal(t, 1, asn1.BitString(set1).At(4))
+		assert.Equal(t, 1, asn1.BitString(set1).At(15))
+		assert.Equal(t, 1, asn1.BitString(set1).At(34))
+	}
+	{
+		var set1, set2 ConditionTypeSet
+
+		set1.add(CTPreimageSha256)
+		set2.add(CTPrefixSha256)
+
+		set1.addAll(set2)
+
+		assert.Equal(t, 2, len(set1.AllTypes()))
+		assert.True(t, set1.Has(CTPreimageSha256))
+		assert.True(t, set1.Has(CTPrefixSha256))
+		assert.Equal(t, 1, asn1.BitString(set1).At(int(CTPreimageSha256)))
+		assert.Equal(t, 1, asn1.BitString(set1).At(int(CTPrefixSha256)))
+	}
+}
+
+func TestConditionTypeSet_addRelevant(t *testing.T) {
+	{ // Condition
+		subTypes := ConditionTypeSet{}
+		subTypes.add(CTPreimageSha256)
+		cond := Condition{
+			conditionType: CTPrefixSha256,
+			subTypes:      subTypes,
+		}
+		set := ConditionTypeSet{}
+		set.addRelevant(cond)
+
+		assert.Equal(t, 2, len(set.AllTypes()))
+		assert.True(t, set.Has(CTPreimageSha256))
+		assert.True(t, set.Has(CTPrefixSha256))
+	}
+	{ // Fulfillment
+		ff := NewPreimageSha256(nil)
+		set := ConditionTypeSet{}
+		set.addRelevant(ff)
+
+		assert.Equal(t, 1, len(set.AllTypes()))
+		assert.True(t, set.Has(CTPreimageSha256))
+	}
+	{ // Compound condition fulfillment
+		subFf := NewPreimageSha256(nil)
+		ff := NewPrefixSha256(nil, 0, subFf)
+		set := ConditionTypeSet{}
+		set.addRelevant(ff)
+
+		assert.Equal(t, 2, len(set.AllTypes()))
+		assert.True(t, set.Has(CTPreimageSha256))
+		assert.True(t, set.Has(CTPrefixSha256))
+	}
 }
 
 func TestDecodeCondition_Preimage(t *testing.T) {

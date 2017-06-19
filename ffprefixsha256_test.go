@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"fmt"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +20,6 @@ func TestFfPrefixSha256(t *testing.T) {
 	t.Logf("Preimage hash: %X", sha256.Sum256([]byte{}))
 	t.Logf("Subcondition: A0258020E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855810100")
 	t.Logf("Expected fpc: %X", fpc)
-	fmt.Println("Starting fingperprint contents")
 	ffFPC := ff.fingerprintContents()
 	t.Logf("  Actual fpc: %X", ffFPC)
 	assert.Equal(t, fpc, ffFPC)

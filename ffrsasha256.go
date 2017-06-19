@@ -78,15 +78,15 @@ func (f FfRsaSha256) cost() int {
 	return len(f.Modulus) * len(f.Modulus)
 }
 
-func (f FfRsaSha256) Condition() Condition {
-	return newConditionFromFulfillment(f)
+func (f FfRsaSha256) Condition() *Condition {
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
 }
 
 func (f FfRsaSha256) Encode() ([]byte, error) {
 	return encodeFulfillment(f)
 }
 
-func (f FfRsaSha256) Validate(condition Condition, message []byte) error {
+func (f FfRsaSha256) Validate(condition *Condition, message []byte) error {
 	if !matches(f, condition) {
 		return fulfillmentDoesNotMatchConditionError
 	}
