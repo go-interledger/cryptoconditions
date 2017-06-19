@@ -4,24 +4,10 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"fmt"
-	"strings"
-
 	"github.com/stevenroose/asn1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func printBitsSet(set ConditionTypeSet) {
-	bs := asn1.BitString(set)
-	bits := make([]string, 0)
-	for i := 0; i < 30; i++ {
-		if bs.At(i) == 1 {
-			bits = append(bits, fmt.Sprintf("%d", i))
-		}
-	}
-	fmt.Println("Bits set:", strings.Join(bits, ", "))
-}
 
 func TestConditionTypeSet_add(t *testing.T) {
 	var set ConditionTypeSet

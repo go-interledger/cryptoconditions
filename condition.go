@@ -36,41 +36,42 @@ const (
 // conditionTypeDictionary maps condition type names to the corresponding
 // condition types.
 var conditionTypeDictionary = map[string]ConditionType{
-	"ED25519-SHA-256":   CTEd25519Sha256,
-	"PREFIX-SHA-256":    CTPrefixSha256,
 	"PREIMAGE-SHA-256":  CTPreimageSha256,
+	"PREFIX-SHA-256":    CTPrefixSha256,
 	"THRESHOLD-SHA-256": CTThresholdSha256,
 	"RSA-SHA-256":       CTRsaSha256,
+	"ED25519-SHA-256":   CTEd25519Sha256,
 }
 
+// IsCompound returns true for compound condition types that have subtypes.
 func (t ConditionType) IsCompound() bool {
 	switch t {
-	case CTEd25519Sha256:
+	case CTPreimageSha256:
 		return false
 	case CTPrefixSha256:
 		return true
-	case CTPreimageSha256:
-		return false
-	case CTRsaSha256:
-		return false
 	case CTThresholdSha256:
 		return true
+	case CTRsaSha256:
+		return false
+	case CTEd25519Sha256:
+		return false
 	}
 	panic(fmt.Sprintf("ConditionType %d does not exist", t))
 }
 
 func (t ConditionType) String() string {
 	switch t {
-	case CTEd25519Sha256:
-		return "ED25519-SHA-256"
-	case CTPrefixSha256:
-		return "PREFIX-SHA-256"
 	case CTPreimageSha256:
 		return "PREIMAGE-SHA-256"
+	case CTPrefixSha256:
+		return "PREFIX-SHA-256"
 	case CTThresholdSha256:
 		return "THRESHOLD-SHA-256"
 	case CTRsaSha256:
 		return "RSA-SHA-256"
+	case CTEd25519Sha256:
+		return "ED25519-SHA-256"
 	}
 	panic(fmt.Sprintf("ConditionType %d does not exist", t))
 }
@@ -163,7 +164,7 @@ func (c *ConditionTypeSet) addRelevant(element interface{}) {
 		ff := element.(Fulfillment)
 		c.add(ff.ConditionType())
 		if compound, ok := element.(compoundConditionFulfillment); ok {
-			c.addAll(compound.subConditionsTypeSet())
+			c.addAll(compound.subConditionTypes())
 		}
 	case Condition:
 		cond := element.(Condition)
@@ -200,22 +201,6 @@ func NewCompoundCondition(conditionType ConditionType, fingerprint []byte, cost 
 		cost:          cost,
 		subTypes:      subTypes,
 	}
-}
-
-// newConditionFromFulfillment constructs a condition from a fulfillment.
-//TODO remove and put inline
-func newConditionFromFulfillment(ff Fulfillment) *Condition {
-	c := &Condition{
-		conditionType: ff.ConditionType(),
-		fingerprint:   ff.fingerprint(),
-		cost:          ff.cost(),
-	}
-
-	if compound, ok := ff.(compoundConditionFulfillment); ok {
-		c.subTypes = compound.subConditionsTypeSet()
-	}
-
-	return c
 }
 
 // Type returns the type of this condition.

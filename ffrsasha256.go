@@ -42,6 +42,7 @@ func NewRsaSha256(modulus []byte, signature []byte) (*FfRsaSha256, error) {
 	}, nil
 }
 
+// PublicKey returns the RSA public key.
 func (f FfRsaSha256) PublicKey() *rsa.PublicKey {
 	return &rsa.PublicKey{
 		N: new(big.Int).SetBytes(f.Modulus),
@@ -51,6 +52,10 @@ func (f FfRsaSha256) PublicKey() *rsa.PublicKey {
 
 func (f FfRsaSha256) ConditionType() ConditionType {
 	return CTRsaSha256
+}
+
+func (f FfRsaSha256) Cost() int {
+	return len(f.Modulus) * len(f.Modulus)
 }
 
 func (f FfRsaSha256) fingerprintContents() []byte {
@@ -74,12 +79,8 @@ func (f FfRsaSha256) fingerprint() []byte {
 	return hash[:]
 }
 
-func (f FfRsaSha256) cost() int {
-	return len(f.Modulus) * len(f.Modulus)
-}
-
 func (f FfRsaSha256) Condition() *Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.Cost())
 }
 
 func (f FfRsaSha256) Encode() ([]byte, error) {

@@ -55,6 +55,13 @@ func (f FfPrefixSha256) IsFulfilled() bool {
 	return f.SubFulfillment != nil
 }
 
+func (f FfPrefixSha256) Cost() int {
+	return len(f.Prefix) +
+		int(f.MaxMessageLength) +
+		f.SubCondition().Cost() +
+		1024
+}
+
 func (f FfPrefixSha256) fingerprintContents() []byte {
 	content := struct {
 		Prefix           []byte      `asn1:"tag:0"`
@@ -63,7 +70,7 @@ func (f FfPrefixSha256) fingerprintContents() []byte {
 	}{
 		Prefix:           f.Prefix,
 		MaxMessageLength: f.MaxMessageLength,
-		SubCondition:     encodedCondition(f.SubCondition()),
+		SubCondition:     castToEncodableCondition(f.SubCondition()),
 	}
 
 	encoded, err := ASN1Context.Encode(content)
@@ -80,14 +87,7 @@ func (f FfPrefixSha256) fingerprint() []byte {
 	return hash[:]
 }
 
-func (f FfPrefixSha256) cost() int {
-	return len(f.Prefix) +
-		int(f.MaxMessageLength) +
-		f.SubCondition().Cost() +
-		1024
-}
-
-func (f FfPrefixSha256) subConditionsTypeSet() ConditionTypeSet {
+func (f FfPrefixSha256) subConditionTypes() ConditionTypeSet {
 	var set ConditionTypeSet
 	if f.IsFulfilled() {
 		set.addRelevant(f.SubFulfillment)
@@ -102,7 +102,7 @@ func (f FfPrefixSha256) subConditionsTypeSet() ConditionTypeSet {
 }
 
 func (f FfPrefixSha256) Condition() *Condition {
-	return NewCompoundCondition(f.ConditionType(), f.fingerprint(), f.cost(), f.subConditionsTypeSet())
+	return NewCompoundCondition(f.ConditionType(), f.fingerprint(), f.Cost(), f.subConditionTypes())
 }
 
 func (f FfPrefixSha256) Encode() ([]byte, error) {

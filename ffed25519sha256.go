@@ -33,12 +33,17 @@ func NewEd25519Sha256(pubkey []byte, signature []byte) (*FfEd25519Sha256, error)
 	}, nil
 }
 
+// Ed25519PublicKey returns the Ed25519 public key.
 func (f FfEd25519Sha256) Ed25519PublicKey() ed25519.PublicKey {
 	return ed25519.PublicKey(f.PublicKey)
 }
 
 func (f FfEd25519Sha256) ConditionType() ConditionType {
 	return CTEd25519Sha256
+}
+
+func (f FfEd25519Sha256) Cost() int {
+	return ffEd25519Sha256Cost
 }
 
 func (f FfEd25519Sha256) fingerprintContents() []byte {
@@ -62,12 +67,8 @@ func (f FfEd25519Sha256) fingerprint() []byte {
 	return hash[:]
 }
 
-func (f FfEd25519Sha256) cost() int {
-	return ffEd25519Sha256Cost
-}
-
 func (f FfEd25519Sha256) Condition() *Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.Cost())
 }
 
 func (f FfEd25519Sha256) Encode() ([]byte, error) {

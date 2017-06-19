@@ -29,7 +29,7 @@ const (
 
 type hexBytes []byte
 
-func (h hexBytes) Bytes() []byte {
+func (h hexBytes) bytes() []byte {
 	return []byte(h)
 }
 
@@ -91,11 +91,11 @@ func testRfcVectorGet(t *testing.T, valid bool, filename string) rfcVector {
 // testRfcVectorConditionTypeMapping maps the type identifiers used in the
 // vector JSON format to the types used in this implementation.
 var testRfcVectorConditionTypeMapping = map[string]ConditionType{
-	"ed25519-sha-256":   CTEd25519Sha256,
-	"prefix-sha-256":    CTPrefixSha256,
 	"preimage-sha-256":  CTPreimageSha256,
-	"rsa-sha-256":       CTRsaSha256,
+	"prefix-sha-256":    CTPrefixSha256,
 	"threshold-sha-256": CTThresholdSha256,
+	"rsa-sha-256":       CTRsaSha256,
+	"ed25519-sha-256":   CTEd25519Sha256,
 }
 
 // testRfcVectorConstructFulfillmentJSON constructs a fulfillment from hte JSON
@@ -131,16 +131,16 @@ func testRfcVectorConstructFulfillmentFromJSON(t *testing.T, fields map[string]i
 		}
 		ff = NewThresholdSha256(threshold, subfulfillments, nil)
 
-	case CTEd25519Sha256:
-		pubkey := unbase64(fields["publicKey"].(string))
-		signature := unbase64(fields["signature"].(string))
-		ff, err = NewEd25519Sha256(pubkey, signature)
-		require.NoError(t, err)
-
 	case CTRsaSha256:
 		modulus := unbase64(fields["modulus"].(string))
 		signature := unbase64(fields["signature"].(string))
 		ff, err = NewRsaSha256(modulus, signature)
+		require.NoError(t, err)
+
+	case CTEd25519Sha256:
+		pubkey := unbase64(fields["publicKey"].(string))
+		signature := unbase64(fields["signature"].(string))
+		ff, err = NewEd25519Sha256(pubkey, signature)
 		require.NoError(t, err)
 
 	default:
@@ -174,7 +174,7 @@ func testRfcVectorValidStandard(t *testing.T, vector rfcVector, ff Fulfillment) 
 	// Test fulfillment encoding.
 	encodedFulfillment, err := vector.fulfillment.Encode()
 	require.NoError(t, err)
-	assert.Equal(t, vector.FulfillmentEncoding.Bytes(), encodedFulfillment)
+	assert.Equal(t, vector.FulfillmentEncoding.bytes(), encodedFulfillment)
 
 	condition := vector.fulfillment.Condition()
 
@@ -183,7 +183,7 @@ func testRfcVectorValidStandard(t *testing.T, vector rfcVector, ff Fulfillment) 
 
 	// Test fingerprint contents if possible.
 	if withContents, ok := ff.(fulfillmentWithContents); ok {
-		assert.Equal(t, vector.FingerprintContents.Bytes(), withContents.fingerprintContents())
+		assert.Equal(t, vector.FingerprintContents.bytes(), withContents.fingerprintContents())
 	}
 
 	// Test condition encoding and decoding.
@@ -195,7 +195,7 @@ func testRfcVectorValidStandard(t *testing.T, vector rfcVector, ff Fulfillment) 
 		assert.Equal(t, decodedCondition.Type(), condition.Type())
 		assert.Equal(t, decodedCondition.Cost(), condition.Cost())
 		assert.True(t, decodedCondition.Equals(condition))
-		assert.Equal(t, vector.ConditionBinary.Bytes(), encodedCondition)
+		assert.Equal(t, vector.ConditionBinary.bytes(), encodedCondition)
 	}
 
 	// Test condition URI.
@@ -256,16 +256,6 @@ func testRfcVectorValidThresholdSha256(t *testing.T, vector rfcVector, rff Fulfi
 	}
 }
 
-func testRfcVectorValidEd25519Sha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	ff, ok := rff.(*FfEd25519Sha256)
-	require.True(t, ok)
-	vff, ok := vector.fulfillment.(*FfEd25519Sha256)
-	require.True(t, ok)
-
-	assert.Equal(t, vff.PublicKey, ff.PublicKey)
-	assert.Equal(t, vff.Signature, ff.Signature)
-}
-
 func testRfcVectorValidRsaSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
 	ff, ok := rff.(*FfRsaSha256)
 	require.True(t, ok)
@@ -276,14 +266,24 @@ func testRfcVectorValidRsaSha256(t *testing.T, vector rfcVector, rff Fulfillment
 	assert.Equal(t, vff.Signature, ff.Signature)
 }
 
+func testRfcVectorValidEd25519Sha256(t *testing.T, vector rfcVector, rff Fulfillment) {
+	ff, ok := rff.(*FfEd25519Sha256)
+	require.True(t, ok)
+	vff, ok := vector.fulfillment.(*FfEd25519Sha256)
+	require.True(t, ok)
+
+	assert.Equal(t, vff.PublicKey, ff.PublicKey)
+	assert.Equal(t, vff.Signature, ff.Signature)
+}
+
 // testRfcVectorValidFulfillmentTesters maps condition types to the method that
 // performs tests specific to fulfillments of that condition type.
 var testRfcVectorValidFulfillmentTesters = map[ConditionType]func(t *testing.T, vector rfcVector, ff Fulfillment){
 	CTPreimageSha256:  testRfcVectorValidPreimageSha256,
 	CTPrefixSha256:    testRfcVectorValidPrefixSha256,
 	CTThresholdSha256: testRfcVectorValidThresholdSha256,
-	CTEd25519Sha256:   testRfcVectorValidEd25519Sha256,
 	CTRsaSha256:       testRfcVectorValidRsaSha256,
+	CTEd25519Sha256:   testRfcVectorValidEd25519Sha256,
 }
 
 func TestRfcVectors(t *testing.T) {

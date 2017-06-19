@@ -18,6 +18,10 @@ func (f FfPreimageSha256) ConditionType() ConditionType {
 	return CTPreimageSha256
 }
 
+func (f FfPreimageSha256) Cost() int {
+	return len(f.Preimage)
+}
+
 func (f FfPreimageSha256) fingerprintContents() []byte {
 	return f.Preimage
 }
@@ -27,12 +31,8 @@ func (f FfPreimageSha256) fingerprint() []byte {
 	return hash[:]
 }
 
-func (f FfPreimageSha256) cost() int {
-	return len(f.Preimage)
-}
-
 func (f FfPreimageSha256) Condition() *Condition {
-	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.cost())
+	return NewSimpleCondition(f.ConditionType(), f.fingerprint(), f.Cost())
 }
 
 func (f FfPreimageSha256) Encode() ([]byte, error) {

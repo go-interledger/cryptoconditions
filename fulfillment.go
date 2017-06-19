@@ -1,10 +1,6 @@
 package cryptoconditions
 
-import (
-	"reflect"
-
-	"github.com/pkg/errors"
-)
+import "github.com/pkg/errors"
 
 // Fulfillment defines the fulfillment interface.
 type Fulfillment interface {
@@ -13,7 +9,9 @@ type Fulfillment interface {
 
 	// Condition generates the condition that this fulfillment fulfills.
 	Condition() *Condition
-	//TODO consider moving Condition away from here because the next two can make up for it
+
+	// Cost calculates the cost metric of this fulfillment.
+	Cost() int //TODO consider making this one public
 
 	// Encode encodes the fulfillment into binary format.
 	Encode() ([]byte, error)
@@ -26,28 +24,15 @@ type Fulfillment interface {
 	// fingerprint calculates the fingerprint of the condition this fulfillment
 	// fulfills.
 	fingerprint() []byte
-
-	// cost calculates the cost metric of this fulfillment.
-	cost() int //TODO consider making this one public
 }
 
 // compoundConditionFulfillment is an interface that fulfillments for compound
 // conditions have to implement to be able to indicate the condition types of
 // their sub-fulfillments.
 type compoundConditionFulfillment interface {
-	// subConditionsTypeSet returns the set with all the different types
+	// subConditionTypes returns the set with all the different types
 	// amongst sub-conditions of this fulfillment.
-	subConditionsTypeSet() ConditionTypeSet
-}
-
-// fulfillmentTypeMap maps ConditionTypes to the corresponding Go type for the
-// fulfillment for that condition.
-var fulfillmentTypeMap = map[ConditionType]reflect.Type{
-	CTEd25519Sha256:   reflect.TypeOf(FfEd25519Sha256{}),
-	CTPrefixSha256:    reflect.TypeOf(FfPrefixSha256{}),
-	CTPreimageSha256:  reflect.TypeOf(FfPreimageSha256{}),
-	CTRsaSha256:       reflect.TypeOf(FfRsaSha256{}),
-	CTThresholdSha256: reflect.TypeOf(FfThresholdSha256{}),
+	subConditionTypes() ConditionTypeSet
 }
 
 // fulfillmentDoesNotMatchConditionError is the error we throw when trying to
