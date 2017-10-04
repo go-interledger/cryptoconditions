@@ -55,8 +55,7 @@ func (f FfEd25519Sha256) fingerprintContents() []byte {
 
 	encoded, err := ASN1Context.Encode(content)
 	if err != nil {
-		//TODO
-		panic(err)
+		panic(err) //TODO check when this can happen
 	}
 
 	return encoded
@@ -83,7 +82,7 @@ func (f FfEd25519Sha256) Validate(condition *Condition, message []byte) error {
 	if ed25519.Verify(f.Ed25519PublicKey(), message, f.Signature) {
 		return nil
 	} else {
-		return fmt.Errorf(
-			"Unable to Validate Ed25519Sha256 fulfillment: signature verification failed for message %x", message)
+		return fmt.Errorf("Unable to Validate Ed25519Sha256 fulfillment: "+
+			"signature verification failed for message %x", message)
 	}
 }

@@ -53,7 +53,7 @@ func ParseURI(uri string) (*Condition, error) {
 	}
 
 	// Parse the fingerprint.
-	pathParts := strings.SplitN(u.Path, ";", 1)
+	pathParts := strings.SplitN(u.Path, ";", 2)
 	if len(pathParts) != 2 {
 		return nil, errors.New("incorrectly formatted URI, no semicolon found")
 	}
@@ -72,16 +72,18 @@ func ParseURI(uri string) (*Condition, error) {
 	cost := int(parsedInt)
 
 	// Parse subtypes.
-	var subtypeSet *ConditionTypeSet
-	subtypeStrings := strings.Split(params.Get("subtypes"), ",")
-	for _, subtypeString := range subtypeStrings {
-		subType, found := conditionTypeDictionary[strings.ToLower(subtypeString)]
-		if !found {
-			return nil, errors.Errorf(
-				"unknown condition type in subconditions: %s",
-				subtypeString)
+	subtypeSet := &ConditionTypeSet{}
+	if params.Get("subtypes") != "" {
+		subtypeStrings := strings.Split(params.Get("subtypes"), ",")
+		for _, subtypeString := range subtypeStrings {
+			subType, found := conditionTypeDictionary[strings.ToUpper(subtypeString)]
+			if !found {
+				return nil, errors.Errorf(
+					"unknown condition type in subconditions: %s",
+					subtypeString)
+			}
+			subtypeSet.add(subType)
 		}
-		subtypeSet.add(subType)
 	}
 
 	return &Condition{

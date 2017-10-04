@@ -16,8 +16,8 @@ const (
 	ffRsaSha256PublicExponent       = 65537
 )
 
-var ffRsaSha256PssOpts rsa.PSSOptions = rsa.PSSOptions{
-	SaltLength: 32,
+var ffRsaSha256PssOpts = &rsa.PSSOptions{
+	SaltLength: 20,
 	Hash:       crypto.SHA256,
 }
 
@@ -67,8 +67,7 @@ func (f FfRsaSha256) fingerprintContents() []byte {
 
 	encoded, err := ASN1Context.Encode(content)
 	if err != nil {
-		//TODO
-		panic(err)
+		panic(err) //TODO check when this can happen
 	}
 
 	return encoded
@@ -92,6 +91,10 @@ func (f FfRsaSha256) Validate(condition *Condition, message []byte) error {
 		return fulfillmentDoesNotMatchConditionError
 	}
 
-	err := rsa.VerifyPSS(f.PublicKey(), crypto.SHA256, message, f.Signature, &ffRsaSha256PssOpts)
-	return errors.Wrapf(err, "Failed to verify RSA signature of message %x", message)
+	hashed := sha256.Sum256(message)
+	err := rsa.VerifyPSS(
+		f.PublicKey(), crypto.SHA256, hashed[:], f.Signature, ffRsaSha256PssOpts)
+
+	return errors.Wrapf(err,
+		"Failed to verify RSA signature of message 0x\"%x\"", message)
 }

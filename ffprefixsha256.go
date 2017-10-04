@@ -33,7 +33,7 @@ func NewPrefixSha256Unfulfilled(prefix []byte, maxMessageLength uint32, subCondi
 		MaxMessageLength: maxMessageLength,
 		subCondition:     subCondition,
 	}
-} //TODO consider if we really need this
+}
 
 func (f FfPrefixSha256) ConditionType() ConditionType {
 	return CTPrefixSha256
@@ -75,8 +75,7 @@ func (f FfPrefixSha256) fingerprintContents() []byte {
 
 	encoded, err := ASN1Context.Encode(content)
 	if err != nil {
-		//TODO
-		panic(err)
+		panic(err) //TODO check when this can happen
 	}
 
 	return encoded

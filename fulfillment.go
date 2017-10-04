@@ -11,7 +11,7 @@ type Fulfillment interface {
 	Condition() *Condition
 
 	// Cost calculates the cost metric of this fulfillment.
-	Cost() int //TODO consider making this one public
+	Cost() int
 
 	// Encode encodes the fulfillment into binary format.
 	Encode() ([]byte, error)
@@ -24,6 +24,10 @@ type Fulfillment interface {
 	// fingerprint calculates the fingerprint of the condition this fulfillment
 	// fulfills.
 	fingerprint() []byte
+
+	// fingerprintContents returns data that is hashed when calculating the
+	// fingerprint.
+	fingerprintContents() []byte
 }
 
 // compoundConditionFulfillment is an interface that fulfillments for compound

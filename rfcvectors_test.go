@@ -1,14 +1,13 @@
 package cryptoconditions
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"encoding/hex"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -156,62 +155,80 @@ func testRfcVectorConstructFulfillmentFromJSON(t *testing.T, fields map[string]i
 	return ff
 }
 
-// testRfcVectorStandard performs a set of generic tests for the fulfillment.
-// It asserts that
-//  - the encoding of the fulfillment matches the expected encoding
-//  - (not yet) the fingerprint content of the fulfillment matches the expected
-//    fingerprint content
-//  - the encoding of the condition corresponding to the fulfillment matches
-//    the expected encoding
-//  - the URI of the fulfillment matches the expected URI
-//  - the subtypes of the fulfillment match the expected subtypes
-//  - the cost of the condition corresponding to the fulfillment matches the
-//    expected cost
-func testRfcVectorValidStandard(t *testing.T, vector rfcVector, ff Fulfillment) {
-	//TODO should these be equal (fails on subfulfillements that can be refs or values)
-	//assert.Equal(t, vector.fulfillment, ff)
+// testRfcVectorStandard performs the tests for a test vector.
+// It tests the following:
+//  - Parse conditionBinary, serialize as a URI, should match conditionUri.
+//  - Parse conditionUri, serialize as binary, should match conditionBinary.
+//  - Parse fulfillment, serialize fulfillment, should match fulfillment.
+//  - Parse fulfillment and validate, should return true.
+//  - Parse fulfillment and generate the fingerprint contents
+//  - Parse fulfillment, generate the condition, serialize the
+//    condition as a URI, should match conditionUri.
+//  - Create fulfillment from json, serialize fulfillment,
+//    should match fulfillment.
+func testRfcVectorValidStandard(t *testing.T, vector rfcVector) {
 
-	// Test fulfillment encoding.
-	encodedFulfillment, err := vector.fulfillment.Encode()
-	require.NoError(t, err)
-	assert.Equal(t, vector.FulfillmentEncoding.bytes(), encodedFulfillment)
-
-	condition := vector.fulfillment.Condition()
-
-	// Test condition of decoded fulfillment.
-	assert.True(t, condition.Equals(ff.Condition()))
-
-	// Test fingerprint contents if possible.
-	if withContents, ok := ff.(fulfillmentWithContents); ok {
-		assert.Equal(t, vector.FingerprintContents.bytes(), withContents.fingerprintContents())
+	{
+		// Parse conditionBinary, serialize as a URI, should match conditionUri.
+		cond, err := DecodeCondition(vector.ConditionBinary)
+		require.NoError(t, err)
+		assertEquivalentURIs(t, vector.ConditionUri, cond.URI())
 	}
-
-	// Test condition encoding and decoding.
-	decodedCondition, err := DecodeCondition(vector.ConditionBinary)
-	require.NoError(t, err)
-	encodedCondition, err := condition.Encode()
-	require.NoError(t, err)
-	if assert.Equal(t, decodedCondition.Fingerprint(), condition.Fingerprint()) {
-		assert.Equal(t, decodedCondition.Type(), condition.Type())
-		assert.Equal(t, decodedCondition.Cost(), condition.Cost())
-		assert.True(t, decodedCondition.Equals(condition))
-		assert.Equal(t, vector.ConditionBinary.bytes(), encodedCondition)
+	{
+		// Parse conditionUri, serialize as binary, should match conditionBinary.
+		t.Logf("URI: %s", vector.ConditionUri)
+		cond, err := ParseURI(vector.ConditionUri)
+		require.NoError(t, err)
+		encoded, err := cond.Encode()
+		require.NoError(t, err)
+		assert.Equal(t, vector.ConditionBinary.bytes(), encoded)
 	}
-
-	// Test condition URI.
-	conditionUri := condition.URI()
-	assertEquivalentURIs(t, vector.ConditionUri, conditionUri)
-
-	// Test subtypes.
-	//TODO Test subtypes
-
-	// Test cost.
-	assert.Equal(t, vector.Cost, condition.Cost())
+	{
+		// Parse fulfillment, serialize fulfillment, should match fulfillment.
+		ff, err := DecodeFulfillment(vector.FulfillmentEncoding)
+		require.NoError(t, err)
+		encoded, err := ff.Encode()
+		require.NoError(t, err)
+		assert.Equal(t, vector.FulfillmentEncoding.bytes(), encoded)
+	}
+	{
+		// Parse fulfillment and validate, should return true.
+		ff, err := DecodeFulfillment(vector.FulfillmentEncoding)
+		require.NoError(t, err)
+		cond, err := DecodeCondition(vector.ConditionBinary.bytes())
+		require.NoError(t, err)
+		msg := unhex(vector.Message)
+		assert.NoError(t, ff.Validate(cond, msg))
+	}
+	{
+		// Parse fulfillment and generate the fingerprint contents
+		ff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+		require.NoError(t, err)
+		fpc := ff.fingerprintContents()
+		assert.Equal(t, vector.FingerprintContents.bytes(), fpc)
+	}
+	{
+		// Parse fulfillment, generate the condition, serialize the
+		// condition as a URI, should match conditionUri.
+		ff, err := DecodeFulfillment(vector.FulfillmentEncoding)
+		require.NoError(t, err)
+		assertEquivalentURIs(t, vector.ConditionUri, ff.Condition().URI())
+	}
+	{
+		// Create fulfillment from json, serialize fulfillment,
+		// should match fulfillment.
+		ff := testRfcVectorConstructFulfillmentFromJSON(t, vector.JSON)
+		encoded, err := ff.Encode()
+		require.NoError(t, err)
+		assert.Equal(t, vector.FulfillmentEncoding.bytes(), encoded)
+	}
 }
 
-func testRfcVectorValidPreimageSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	// Cast the fulfillment.
-	ff, ok := rff.(*FfPreimageSha256)
+func testRfcVectorValidPreimageSha256(t *testing.T, vector rfcVector) {
+	// Decode and cast the fulfillment.
+	gff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+	require.NoError(t, err)
+	ff, ok := gff.(*FfPreimageSha256)
 	require.True(t, ok)
 
 	// Check if the preimage is correct.
@@ -219,9 +236,11 @@ func testRfcVectorValidPreimageSha256(t *testing.T, vector rfcVector, rff Fulfil
 	assert.Equal(t, preimage, ff.Preimage)
 }
 
-func testRfcVectorValidPrefixSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	// Cast the fulfillment.
-	ff, ok := rff.(*FfPrefixSha256)
+func testRfcVectorValidPrefixSha256(t *testing.T, vector rfcVector) {
+	// Decode and cast the fulfillment.
+	gff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+	require.NoError(t, err)
+	ff, ok := gff.(*FfPrefixSha256)
 	require.True(t, ok)
 
 	// Check if the prefix is correct.
@@ -229,10 +248,13 @@ func testRfcVectorValidPrefixSha256(t *testing.T, vector rfcVector, rff Fulfillm
 	assert.Equal(t, prefix, ff.Prefix)
 }
 
-func testRfcVectorValidThresholdSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	// Cast the fulfillment.
-	ff, ok := rff.(*FfThresholdSha256)
+func testRfcVectorValidThresholdSha256(t *testing.T, vector rfcVector) {
+	// Decode and cast the fulfillment.
+	gff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+	require.NoError(t, err)
+	ff, ok := gff.(*FfThresholdSha256)
 	require.True(t, ok)
+
 	vff, ok := vector.fulfillment.(*FfThresholdSha256)
 	require.True(t, ok)
 
@@ -256,29 +278,31 @@ func testRfcVectorValidThresholdSha256(t *testing.T, vector rfcVector, rff Fulfi
 	}
 }
 
-func testRfcVectorValidRsaSha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	ff, ok := rff.(*FfRsaSha256)
-	require.True(t, ok)
-	vff, ok := vector.fulfillment.(*FfRsaSha256)
+func testRfcVectorValidRsaSha256(t *testing.T, vector rfcVector) {
+	// Decode and cast the fulfillment.
+	gff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+	require.NoError(t, err)
+	ff, ok := gff.(*FfRsaSha256)
 	require.True(t, ok)
 
-	assert.Equal(t, vff.Modulus, ff.Modulus)
-	assert.Equal(t, vff.Signature, ff.Signature)
+	assert.Equal(t, ff.Modulus, ff.Modulus)
+	assert.Equal(t, ff.Signature, ff.Signature)
 }
 
-func testRfcVectorValidEd25519Sha256(t *testing.T, vector rfcVector, rff Fulfillment) {
-	ff, ok := rff.(*FfEd25519Sha256)
-	require.True(t, ok)
-	vff, ok := vector.fulfillment.(*FfEd25519Sha256)
+func testRfcVectorValidEd25519Sha256(t *testing.T, vector rfcVector) {
+	// Decode and cast the fulfillment.
+	gff, err := DecodeFulfillment(vector.FulfillmentEncoding.bytes())
+	require.NoError(t, err)
+	ff, ok := gff.(*FfEd25519Sha256)
 	require.True(t, ok)
 
-	assert.Equal(t, vff.PublicKey, ff.PublicKey)
-	assert.Equal(t, vff.Signature, ff.Signature)
+	assert.Equal(t, ff.PublicKey, ff.PublicKey)
+	assert.Equal(t, ff.Signature, ff.Signature)
 }
 
 // testRfcVectorValidFulfillmentTesters maps condition types to the method that
 // performs tests specific to fulfillments of that condition type.
-var testRfcVectorValidFulfillmentTesters = map[ConditionType]func(t *testing.T, vector rfcVector, ff Fulfillment){
+var testRfcVectorValidFulfillmentTesters = map[ConditionType]func(t *testing.T, vector rfcVector){
 	CTPreimageSha256:  testRfcVectorValidPreimageSha256,
 	CTPrefixSha256:    testRfcVectorValidPrefixSha256,
 	CTThresholdSha256: testRfcVectorValidThresholdSha256,
@@ -301,20 +325,17 @@ func TestRfcVectors(t *testing.T) {
 			t.Logf("Running vector %s", testName)
 			// Read the vector file.
 			vector := testRfcVectorGet(t, true, vectorFileName)
-			// Construct the fulfillment.
+			// Construct the fulfillment from JSON.
 			vector.fulfillment = testRfcVectorConstructFulfillmentFromJSON(t, vector.JSON)
-			// Decode the binary fulfillment into a native object.
-			ff, err := DecodeFulfillment(vector.FulfillmentEncoding)
-			require.NoError(t, err)
 			// Run the standard tests.
-			testRfcVectorValidStandard(t, vector, ff)
+			testRfcVectorValidStandard(t, vector)
 			// Run the type-specific tests.
 			typeSpecificTester := testRfcVectorValidFulfillmentTesters[vector.fulfillment.ConditionType()]
 			if typeSpecificTester == nil {
 				t.Log("Failing because no type-specific tester function")
 				t.FailNow()
 			}
-			typeSpecificTester(t, vector, ff)
+			typeSpecificTester(t, vector)
 		})
 	}
 

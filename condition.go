@@ -2,7 +2,6 @@ package cryptoconditions
 
 import (
 	"bytes"
-
 	"fmt"
 
 	"github.com/stevenroose/asn1"
