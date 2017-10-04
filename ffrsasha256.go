@@ -17,7 +17,7 @@ const (
 )
 
 var ffRsaSha256PssOpts = &rsa.PSSOptions{
-	SaltLength: 20,
+	SaltLength: 32,
 	Hash:       crypto.SHA256,
 }
 
@@ -96,5 +96,5 @@ func (f FfRsaSha256) Validate(condition *Condition, message []byte) error {
 		f.PublicKey(), crypto.SHA256, hashed[:], f.Signature, ffRsaSha256PssOpts)
 
 	return errors.Wrapf(err,
-		"Failed to verify RSA signature of message 0x\"%x\"", message)
+		"failed to verify RSA signature of binary message \"%x\" (hex)", message)
 }
