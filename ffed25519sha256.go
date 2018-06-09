@@ -23,7 +23,7 @@ func NewEd25519Sha256(pubkey []byte, signature []byte) (*FfEd25519Sha256, error)
 		return nil, errors.Errorf(
 			"wrong pubkey size (%d)", len(pubkey))
 	}
-	if len(signature) != ed25519.SignatureSize {
+	if len(signature) != ed25519.SignatureSize && len(signature) != 0 {
 		return nil, errors.Errorf(
 			"wrong signature size (%d)", len(signature))
 	}
