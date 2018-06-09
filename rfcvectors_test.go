@@ -318,6 +318,9 @@ func TestRfcVectors(t *testing.T) {
 		if vectorFile.IsDir() {
 			continue
 		}
+		if vectorFile.Size() == 0 {
+			continue
+		}
 		vectorFileName := vectorFile.Name()
 		testName := fmt.Sprintf("valid %s", vectorFileName)
 		t.Run(testName, func(t *testing.T) {
@@ -344,6 +347,9 @@ func TestRfcVectors(t *testing.T) {
 	require.NoError(t, err)
 	for _, vectorFile := range invalidVectorFiles {
 		if vectorFile.IsDir() {
+			continue
+		}
+		if vectorFile.Size() == 0 {
 			continue
 		}
 		vectorFileName := vectorFile.Name()
